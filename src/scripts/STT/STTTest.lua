@@ -112,15 +112,19 @@ function test.byPhrase(scores)
 end
 
 --- Aggregate scores into the numbers worth comparing between settings.
+-- Input level is averaged in alongside the accuracy figures: two runs of the
+-- same settings are only comparable if the speech arrived comparably, and
+-- runs have differed by more than any setting did.
 function test.summarize(scores)
   local total = #scores
-  local exact, firstWordLost, silent, errorSum, wordSum = 0, 0, 0, 0, 0
+  local exact, firstWordLost, silent, errorSum, wordSum, levelSum = 0, 0, 0, 0, 0, 0
   for _, score in ipairs(scores) do
     if score.exact then exact = exact + 1 end
     if not score.firstWord then firstWordLost = firstWordLost + 1 end
     if score.heardNothing then silent = silent + 1 end
     errorSum = errorSum + score.errors
     wordSum = wordSum + #test.tokens(score.expected)
+    levelSum = levelSum + (score.peakLevel or 0)
   end
   return {
     phrases = total,
@@ -129,6 +133,7 @@ function test.summarize(scores)
     firstWordLost = firstWordLost,
     heardNothing = silent,
     wordErrorRate = wordSum > 0 and (errorSum / wordSum) or 0,
+    meanPeakLevel = total > 0 and (levelSum / total) or 0,
   }
 end
 
@@ -140,6 +145,10 @@ local function clearTimer()
   if test._run and test._run.timerId then
     killTimer(test._run.timerId)
     test._run.timerId = nil
+  end
+  if test._run and test._run.levelTimerId then
+    killTimer(test._run.levelTimerId)
+    test._run.levelTimerId = nil
   end
 end
 
@@ -178,8 +187,11 @@ local function finishPhrase(heard)
   if not run then return end
   clearTimer()
 
+  stopSampling()
+
   local expected = run.phrases[run.index]
   local score = test.score(expected, heard)
+  score.peakLevel = run.peakLevel or 0
   run.scores[#run.scores + 1] = score
 
   if score.exact then
@@ -207,11 +219,37 @@ local function finishPhrase(heard)
   end
 end
 
+-- How loudly the phrase arrived, sampled while it is being spoken. Without
+-- it a phrase the engine misheard and one the microphone barely received look
+-- identical in the results, and they call for opposite remedies.
+local LEVEL_SAMPLE_SECONDS = 0.1
+
+local function sampleLevel()
+  local run = test._run
+  if not run then return end
+  if sttpkg.bridgeAvailable() then
+    local level = stt.getInfo().audioLevel or 0
+    if level > run.peakLevel then run.peakLevel = level end
+  end
+  run.levelTimerId = tempTimer(LEVEL_SAMPLE_SECONDS, sampleLevel)
+end
+
+local function stopSampling()
+  local run = test._run
+  if run and run.levelTimerId then
+    killTimer(run.levelTimerId)
+    run.levelTimerId = nil
+  end
+end
+
 prompt = function()
   local run = test._run
   if not run then return end
   cecho(string.format("<white>[%d/%d] say: <cyan>%s\n", run.index, #run.phrases, run.phrases[run.index]))
+  run.peakLevel = 0
   run.timerId = tempTimer(PHRASE_TIMEOUT, function() finishPhrase(nil) end)
+  stopSampling()
+  sampleLevel()
 end
 
 --- Begin a run. Recognised text is scored instead of reaching the game, so a
@@ -263,6 +301,8 @@ function test.report()
     math.floor(summary.wordErrorRate * 100 + 0.5)))
   cecho(string.format("<white>  first word lost %d, heard nothing %d\n",
     summary.firstWordLost, summary.heardNothing))
+  cecho(string.format("<white>  mean input level %.3f%s\n", summary.meanPeakLevel,
+    summary.meanPeakLevel < 0.08 and " <orange>(quiet - speak up or move closer before comparing runs)" or ""))
 
   -- Which phrases failed, and how consistently. A phrase missed every pass is
   -- a fault with a cause worth finding; one missed occasionally is variance,
