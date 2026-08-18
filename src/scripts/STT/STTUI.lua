@@ -23,10 +23,7 @@ end
 -- nothing after a reinstall.
 function sttpkg.ui.ensureButton()
   if type(addToolbarButton) ~= "function" then return end
-  if sttpkg.ui.buttonId then removeToolbarButton(sttpkg.ui.buttonId) end
-  if sttpkg.ui.clickHandler then killAnonymousEventHandler(sttpkg.ui.clickHandler) end
-  sttpkg.ui.buttonId = nil
-  sttpkg.ui.clickHandler = nil
+  sttpkg.ui.teardown()
 
   local id = addToolbarButton("Speech", iconPath(), "Toggle speech recognition")
   if not id then return end
@@ -55,6 +52,20 @@ function sttpkg.ui.refresh(state)
     tooltip = "Speech: error - see the main window"
   end
   setToolbarButtonTooltip(sttpkg.ui.buttonId, tooltip)
+end
+
+--- Remove the button and its handler, so a control never outlives the code
+-- that answers it. Called before creating a replacement, and by the
+-- uninstall handler in STTCore.
+function sttpkg.ui.teardown()
+  if sttpkg.ui.buttonId and type(removeToolbarButton) == "function" then
+    removeToolbarButton(sttpkg.ui.buttonId)
+  end
+  if sttpkg.ui.clickHandler then
+    killAnonymousEventHandler(sttpkg.ui.clickHandler)
+  end
+  sttpkg.ui.buttonId = nil
+  sttpkg.ui.clickHandler = nil
 end
 
 sttpkg.ui.ensureButton()

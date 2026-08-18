@@ -202,6 +202,25 @@ local function handleState(_, state)
   raiseEvent("sttPackageState", state)
 end
 
+-- This package's installed name, as declared in mfile. Needed because the
+-- uninstall event names the package being removed and every installed
+-- package hears it.
+local PACKAGE_NAME = "STT"
+
+--- Give back everything this package took: a live microphone, the toolbar
+-- button, and the event handlers. Mudlet raises the uninstall event before
+-- it deletes the package's scripts, so this still runs.
+function sttpkg.teardown()
+  sttpkg.disable()
+  if sttpkg.ui and sttpkg.ui.teardown then
+    sttpkg.ui.teardown()
+  end
+  for _, id in pairs(sttpkg._handlers) do
+    killAnonymousEventHandler(id)
+  end
+  sttpkg._handlers = {}
+end
+
 function sttpkg.setup()
   for _, id in pairs(sttpkg._handlers) do
     killAnonymousEventHandler(id)
@@ -211,6 +230,9 @@ function sttpkg.setup()
     partial = registerAnonymousEventHandler("sysSTTPartialResult", handlePartial),
     error = registerAnonymousEventHandler("sysSTTError", handleError),
     state = registerAnonymousEventHandler("sysSTTStateChanged", handleState),
+    uninstall = registerAnonymousEventHandler("sysUninstall", function(_, name)
+      if name == PACKAGE_NAME then sttpkg.teardown() end
+    end),
   }
   sttpkg.loadConfig()
 end
