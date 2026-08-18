@@ -21,7 +21,11 @@ test.phrases = {
   "kill goblin",
   "sit bench",
   "say stop look and listen",
-  "wear leather armor",
+  -- Not "armor": recognisers trained on prose write "armour", and a game whose
+  -- own vocabulary spells it that way makes the model right and the phrase
+  -- wrong. A fixed list has to avoid words that differ across dialects, or it
+  -- scores the dictionary rather than the recogniser.
+  "wear leather boots",
   "cast fireball at troll",
   "put coins in bag",
 }
