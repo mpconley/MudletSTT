@@ -1,0 +1,9 @@
+[
+       {
+              "isActive": "yes",
+              "isFolder": "no",
+              "name": "STTAlias",
+              "regex": "^stt(?:\\s+(.+))?$",
+              "command": ""
+       }
+]

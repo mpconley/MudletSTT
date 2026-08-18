@@ -1,0 +1,20 @@
+[
+       {
+              "isActive": "yes",
+              "isFolder": "no",
+              "name": "STTCorrect",
+              "script": ""
+       },
+       {
+              "isActive": "yes",
+              "isFolder": "no",
+              "name": "STTCore",
+              "script": ""
+       },
+       {
+              "isActive": "yes",
+              "isFolder": "no",
+              "name": "STTUI",
+              "script": ""
+       }
+]

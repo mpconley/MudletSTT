@@ -1,0 +1,8 @@
+{
+       "package": "STT",
+       "title": "MudletSTT",
+       "description": "Speech-to-text for Mudlet: microphone toggle, command-line routing, and MCVP vocabulary correction over the stt.* bridge.",
+       "version": "1",
+       "author": "Tamarindo",
+       "outputFile": true
+}
