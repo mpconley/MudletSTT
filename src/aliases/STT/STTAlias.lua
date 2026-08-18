@@ -61,6 +61,14 @@ elseif sub == "sensitivity" and (rest == "short" or rest == "default" or rest ==
   else
     cecho("<orange>[STT] this Mudlet build cannot change sensitivity\n")
   end
+elseif sub == "test" then
+  if rest == "stop" then
+    if not sttpkg.test.stop() then
+      cecho("<light_slate_gray>[STT] no test is running\n")
+    end
+  else
+    sttpkg.test.start()
+  end
 elseif sub == "models" then
   if not sttpkg.bridgeAvailable() then
     cecho("<orange>[STT] No speech bridge in this Mudlet build.\n")
@@ -84,6 +92,7 @@ else
   stt lowercase on|off   lowercase the first letter, the way commands are typed
   stt sensitivity short|default|long   how soon a phrase counts as finished
   stt timeout <ms>       stop after this much silence; 0 keeps listening
+  stt test         score recognition against set phrases (stt test stop)
   stt models       list installed speech models
 ]])
 end

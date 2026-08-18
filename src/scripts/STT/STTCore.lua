@@ -173,6 +173,11 @@ end
 
 local function handleFinal(_, text)
   local corrected = sttpkg.prepare(text)
+  -- A test scores what was heard rather than acting on it, so a run can be
+  -- done while connected without the character doing what was said
+  if sttpkg.test and sttpkg.test.submit and sttpkg.test.submit(corrected) then
+    return
+  end
   if sttpkg.config.autosend then
     send(corrected)
     -- Only our own preview is cleared; half-typed input survives being

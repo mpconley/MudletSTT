@@ -43,8 +43,25 @@ stt correct on|off     correct finals against the game vocabulary (MCVP)
 stt lowercase on|off   lowercase the first letter, the way commands are typed
 stt sensitivity short|default|long   how soon a phrase counts as finished
 stt timeout <ms>       stop after this much silence; 0 keeps listening
+stt test         score recognition against set phrases (stt test stop)
 stt models       list installed speech models
 ```
+
+## Measuring recognition quality
+
+`stt test` prompts with a set of phrases, listens for each, and scores what
+came back. Nothing is sent to the game during a run, so it is safe while
+connected. The report gives three numbers worth comparing between settings:
+
+- **exact** — phrases that matched outright.
+- **word error rate** — substitutions, insertions and deletions over all
+  expected words.
+- **first word lost** — tracked separately, because a command's first word is
+  its verb: losing it costs the whole phrase however well the rest was heard.
+
+Each report names the engine, model and sensitivity it ran under, so results
+from different settings can be compared honestly. Change one thing between
+runs — `stt sensitivity default`, a different model — and run it again.
 
 ## Events
 
