@@ -43,7 +43,8 @@ stt correct on|off     correct finals against the game vocabulary (MCVP)
 stt lowercase on|off   lowercase the first letter, the way commands are typed
 stt sensitivity short|default|long   how soon a phrase counts as finished
 stt timeout <ms>       stop after this much silence; 0 keeps listening
-stt test         score recognition against set phrases (stt test stop)
+stt test [n]     score recognition against set phrases, n passes (stt test stop)
+stt model <name> load a different installed model, to compare them
 stt models       list installed speech models
 ```
 
@@ -59,9 +60,16 @@ connected. The report gives three numbers worth comparing between settings:
 - **first word lost** — tracked separately, because a command's first word is
   its verb: losing it costs the whole phrase however well the rest was heard.
 
-Each report names the engine, model and sensitivity it ran under, so results
-from different settings can be compared honestly. Change one thing between
-runs — `stt sensitivity default`, a different model — and run it again.
+Each report names the engine, model, sensitivity and how many vocabulary
+words correction actually had, so results from different settings can be
+compared honestly.
+
+**Run more than one pass.** Repeated runs of the same ten phrases at identical
+settings have scored anywhere from 50% to 80% exact, so a single run cannot
+tell a real difference from the spread. `stt test 3` runs three passes and
+reports the total; the failure list at the end shows how consistently each
+phrase failed, which is what separates a fault worth chasing from ordinary
+variance.
 
 ## Events
 

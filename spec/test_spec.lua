@@ -88,6 +88,32 @@ describe("sttpkg.test scoring", function()
       assert.equals(2 / 4, summary.wordErrorRate)
     end)
 
+    it("separates a phrase that always fails from one that sometimes does", function()
+      local scores = {
+        test.score("wear leather boots", "wear weather boots"),
+        test.score("wear leather boots", "where weather boots"),
+        test.score("kill goblin", "kill goblin"),
+        test.score("kill goblin", "kilgun"),
+      }
+      local rows = test.byPhrase(scores)
+      local byName = {}
+      for _, row in ipairs(rows) do byName[row.expected] = row end
+
+      assert.equals(2, byName["wear leather boots"].failures)
+      assert.equals(2, byName["wear leather boots"].attempts)
+      assert.equals(1, byName["kill goblin"].failures)
+      assert.equals(2, byName["kill goblin"].attempts)
+    end)
+
+    it("counts repeats of the same misrecognition together", function()
+      local scores = {
+        test.score("wear leather boots", "wear weather boots"),
+        test.score("wear leather boots", "wear weather boots"),
+      }
+      local rows = test.byPhrase(scores)
+      assert.equals(2, rows[1].heard["wear weather boots"])
+    end)
+
     it("handles an empty run without dividing by zero", function()
       local summary = test.summarize({})
       assert.equals(0, summary.phrases)

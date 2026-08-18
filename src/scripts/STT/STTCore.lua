@@ -93,6 +93,31 @@ function sttpkg.applySensitivity()
   return stt.setSensitivity(sttpkg.config.sensitivity or "short") and true or false
 end
 
+--- Load a specific installed model by name fragment, so alternatives can be
+-- compared rather than accepted. Returns the model name on success.
+function sttpkg.useModel(fragment)
+  if not sttpkg.bridgeAvailable() then return nil, "no speech bridge in this Mudlet build" end
+  fragment = tostring(fragment or ""):lower()
+
+  for _, engine in ipairs({ "sherpa", "vosk" }) do
+    local ok, models = pcall(stt.listModels, engine)
+    if ok and models then
+      for _, model in ipairs(models) do
+        if model.name:lower():find(fragment, 1, true) then
+          local wasListening = sttpkg.listening()
+          if wasListening then stt.stop() end
+          local loaded, err = stt.init(model.path)
+          if not loaded then return nil, tostring(err) end
+          sttpkg.applySensitivity()
+          if wasListening then stt.start() end
+          return model.name
+        end
+      end
+    end
+  end
+  return nil, "no installed model matches " .. fragment
+end
+
 function sttpkg.listening()
   return sttpkg.bridgeAvailable() and stt.isListening()
 end

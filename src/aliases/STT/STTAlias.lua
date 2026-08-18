@@ -67,7 +67,16 @@ elseif sub == "test" then
       cecho("<light_slate_gray>[STT] no test is running\n")
     end
   else
-    sttpkg.test.start()
+    -- "stt test 3" runs the phrases three times: one pass through ten phrases
+    -- is too few to tell a real difference from the spread between runs
+    sttpkg.test.start(tonumber(rest))
+  end
+elseif sub == "model" and rest ~= "" and rest ~= nil then
+  local name, err = sttpkg.useModel(rest)
+  if name then
+    cecho("<light_slate_gray>[STT] loaded " .. name .. "\n")
+  else
+    cecho("<orange>[STT] " .. tostring(err) .. "\n")
   end
 elseif sub == "models" then
   if not sttpkg.bridgeAvailable() then
@@ -92,7 +101,8 @@ else
   stt lowercase on|off   lowercase the first letter, the way commands are typed
   stt sensitivity short|default|long   how soon a phrase counts as finished
   stt timeout <ms>       stop after this much silence; 0 keeps listening
-  stt test         score recognition against set phrases (stt test stop)
+  stt test [n]     score recognition against set phrases, n passes (stt test stop)
+  stt model <name> load a different installed model, to compare them
   stt models       list installed speech models
 ]])
 end

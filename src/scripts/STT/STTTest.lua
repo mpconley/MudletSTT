@@ -88,6 +88,29 @@ function test.score(expected, heard)
   }
 end
 
+--- Group scores by phrase and count how often each failed. A phrase that
+-- fails every time is a different animal from one that fails now and then:
+-- the first is a fault worth chasing, the second is the recogniser being
+-- itself, and a single run cannot tell them apart.
+function test.byPhrase(scores)
+  local order, seen = {}, {}
+  for _, score in ipairs(scores) do
+    local key = score.expected
+    if not seen[key] then
+      seen[key] = { expected = key, attempts = 0, failures = 0, heard = {} }
+      order[#order + 1] = seen[key]
+    end
+    local row = seen[key]
+    row.attempts = row.attempts + 1
+    if not score.exact then
+      row.failures = row.failures + 1
+      local heard = score.heardNothing and "(nothing)" or score.heard
+      row.heard[heard] = (row.heard[heard] or 0) + 1
+    end
+  end
+  return order
+end
+
 --- Aggregate scores into the numbers worth comparing between settings.
 function test.summarize(scores)
   local total = #scores
@@ -160,7 +183,14 @@ local function finishPhrase(heard)
 
   run.index = run.index + 1
   if run.index > #run.phrases then
-    test.report()
+    if run.pass < run.passes then
+      run.pass = run.pass + 1
+      run.index = 1
+      cecho(string.format("<white>-- pass %d of %d --\n", run.pass, run.passes))
+      prompt()
+    else
+      test.report()
+    end
   else
     prompt()
   end
@@ -175,14 +205,16 @@ end
 
 --- Begin a run. Recognised text is scored instead of reaching the game, so a
 -- test can be run while connected without playing the character.
-function test.start(phrases)
+function test.start(passes, phrases)
   if test.active() then
     cecho("<orange>[STT] a test is already running - stt test stop\n")
     return false
   end
   if not sttpkg.ensureInit() then return false end
 
-  test._run = { index = 1, phrases = phrases or test.phrases, scores = {}, wasListening = sttpkg.listening() }
+  passes = math.max(1, math.floor(tonumber(passes) or 1))
+  test._run = { index = 1, pass = 1, passes = passes, phrases = phrases or test.phrases,
+                scores = {}, wasListening = sttpkg.listening() }
   if not test._run.wasListening then
     sttpkg.enable()
   end
@@ -220,6 +252,27 @@ function test.report()
     math.floor(summary.wordErrorRate * 100 + 0.5)))
   cecho(string.format("<white>  first word lost %d, heard nothing %d\n",
     summary.firstWordLost, summary.heardNothing))
+
+  -- Which phrases failed, and how consistently. A phrase missed every pass is
+  -- a fault with a cause worth finding; one missed occasionally is variance,
+  -- and treating the second as the first is how tuning chases its own tail.
+  local rows = test.byPhrase(run.scores)
+  local reported = false
+  for _, row in ipairs(rows) do
+    if row.failures > 0 then
+      if not reported then
+        cecho("<white>  failures:\n")
+        reported = true
+      end
+      local variants = {}
+      for heard, count in pairs(row.heard) do
+        variants[#variants + 1] = count > 1 and string.format("%s x%d", heard, count) or heard
+      end
+      table.sort(variants)
+      cecho(string.format("<light_slate_gray>    %s (%d/%d): %s\n",
+        row.expected, row.failures, row.attempts, table.concat(variants, ", ")))
+    end
+  end
 
   test._lastSummary = summary
   test.stop(true)
