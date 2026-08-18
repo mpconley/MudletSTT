@@ -13,6 +13,7 @@ sttpkg.config = sttpkg.config or {
   autosend = false,     -- true: finals go to the game; false: into the command line
   livePreview = true,   -- partials appear in the command line while speaking
   correction = true,    -- apply MCVP vocabulary correction to finals
+  lowercase = true,     -- lowercase the first character, the way commands are typed
   silenceTimeout = 0,   -- ms of silence before listening self-stops; 0 = open-ended
 }
 
@@ -120,12 +121,22 @@ function sttpkg.correctText(text)
   return corrected
 end
 
+--- Recognised text as a command line: corrected, then cased the way a player
+-- would have typed it.
+function sttpkg.prepare(text)
+  local prepared = sttpkg.correctText(text)
+  if sttpkg.config.lowercase then
+    prepared = sttpkg.correct.lowerFirst(prepared)
+  end
+  return prepared
+end
+
 -- Event routing. Handlers are re-registered wholesale on reload so a
 -- package update never leaves stale ones behind.
 sttpkg._handlers = sttpkg._handlers or {}
 
 local function handleFinal(_, text)
-  local corrected = sttpkg.correctText(text)
+  local corrected = sttpkg.prepare(text)
   if sttpkg.config.autosend then
     send(corrected)
     clearCmdLine()
@@ -139,6 +150,13 @@ end
 
 local function handlePartial(_, text)
   if sttpkg.config.livePreview and not sttpkg.config.autosend then
+    -- Cased like the final that will replace it, so the preview does not
+    -- visibly re-case itself at the end of every utterance. Correction is
+    -- deliberately not applied here: a half-spoken word is not yet a
+    -- misrecognition to fix.
+    if sttpkg.config.lowercase then
+      text = sttpkg.correct.lowerFirst(text)
+    end
     printCmdLine(text)
   end
 end

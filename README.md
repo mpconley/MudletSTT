@@ -20,6 +20,10 @@ when the game publishes one.
   recognised words are corrected against the game's command and target
   vocabulary. Corrections are conservative: only a unique, close match
   within a length-scaled edit distance replaces a word.
+- **Typed the way you'd type it**: recognisers that produce natural prose
+  sentence-case their output ("Smile"), so the first letter is lowercased to
+  match how commands are written. Only the first letter — proper nouns in
+  arguments keep their case.
 - **Engine aware**: prefers an installed sherpa-onnx streaming model
   (NVIDIA Nemotron - high accuracy, hands-free endpointing) and falls back
   to Vosk. Models install separately via engine packs.
@@ -32,6 +36,7 @@ stt status       engine, state and settings
 stt autosend on|off    send finals to the game instead of the command line
 stt preview on|off     show partial results live in the command line
 stt correct on|off     correct finals against the game vocabulary (MCVP)
+stt lowercase on|off   lowercase the first letter, the way commands are typed
 stt timeout <ms>       stop after this much silence; 0 keeps listening
 stt models       list installed speech models
 ```

@@ -23,10 +23,11 @@ elseif sub == "status" then
     state = string.format("engine %s, state %s, model %s", info.backend or "?", info.state or "?", (info.modelPath or ""):match("[^/]+$") or "none")
   end
   cecho("<light_slate_gray>[STT] " .. state .. "\n")
-  cecho(string.format("<light_slate_gray>[STT] autosend %s, preview %s, correction %s, timeout %dms\n",
+  cecho(string.format("<light_slate_gray>[STT] autosend %s, preview %s, correction %s, lowercase %s, timeout %dms\n",
     sttpkg.config.autosend and "on" or "off",
     sttpkg.config.livePreview and "on" or "off",
     sttpkg.config.correction and "on" or "off",
+    sttpkg.config.lowercase and "on" or "off",
     sttpkg.config.silenceTimeout or 0))
 elseif sub == "autosend" and onOff(rest) ~= nil then
   sttpkg.config.autosend = onOff(rest)
@@ -40,6 +41,10 @@ elseif sub == "correct" and onOff(rest) ~= nil then
   sttpkg.config.correction = onOff(rest)
   sttpkg.saveConfig()
   cecho("<light_slate_gray>[STT] correction " .. rest .. "\n")
+elseif sub == "lowercase" and onOff(rest) ~= nil then
+  sttpkg.config.lowercase = onOff(rest)
+  sttpkg.saveConfig()
+  cecho("<light_slate_gray>[STT] lowercase " .. rest .. "\n")
 elseif sub == "timeout" and tonumber(rest) then
   sttpkg.config.silenceTimeout = math.max(0, math.floor(tonumber(rest)))
   sttpkg.saveConfig()
@@ -67,6 +72,7 @@ else
   stt autosend on|off    send finals to the game instead of the command line
   stt preview on|off     show partial results live in the command line
   stt correct on|off     correct finals against the game vocabulary (MCVP)
+  stt lowercase on|off   lowercase the first letter, the way commands are typed
   stt timeout <ms>       stop after this much silence; 0 keeps listening
   stt models       list installed speech models
 ]])

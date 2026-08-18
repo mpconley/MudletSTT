@@ -87,6 +87,15 @@ function correct.token(token, lex)
   return nil
 end
 
+--- Lowercase the first character. Recognisers that produce natural prose
+-- sentence-case their output ("Smile"), which is not how MUD commands are
+-- written. Only the first character changes, so proper nouns later in the
+-- phrase - player and item names - keep the case they were recognised with.
+function correct.lowerFirst(text)
+  text = tostring(text or "")
+  return text:sub(1, 1):lower() .. text:sub(2)
+end
+
 --- Correct a phrase: the first token against the leading lexicon (command
 -- words), every later token against the argument lexicon (targets, items).
 -- Either lexicon may be nil to skip that position. Returns the corrected
