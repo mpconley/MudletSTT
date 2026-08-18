@@ -15,6 +15,10 @@ sttpkg.config = sttpkg.config or {
   correction = true,    -- apply MCVP vocabulary correction to finals
   lowercase = true,     -- lowercase the first character, the way commands are typed
   silenceTimeout = 0,   -- ms of silence before listening self-stops; 0 = open-ended
+  -- "short" suits what this package is for: commands are a word or two, and
+  -- waiting out a dictation-length pause before each one is the difference
+  -- between talking to a game and dictating to it
+  sensitivity = "short",
 }
 
 local CONFIG_FILE = "stt-package-config.lua"
@@ -73,7 +77,18 @@ function sttpkg.ensureInit()
   if (sttpkg.config.silenceTimeout or 0) > 0 then
     stt.setSilenceTimeout(sttpkg.config.silenceTimeout)
   end
+  sttpkg.applySensitivity()
   return true
+end
+
+--- Push the configured sensitivity to the engine, if this core has the
+-- setting at all. Applied after the model loads, so an engine that rebuilds
+-- to change its endpointing does so once, here, rather than mid-session.
+function sttpkg.applySensitivity()
+  if not sttpkg.bridgeAvailable() or type(stt.setSensitivity) ~= "function" then
+    return false
+  end
+  return stt.setSensitivity(sttpkg.config.sensitivity or "short") and true or false
 end
 
 function sttpkg.listening()

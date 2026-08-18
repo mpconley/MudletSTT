@@ -29,6 +29,7 @@ elseif sub == "status" then
     sttpkg.config.correction and "on" or "off",
     sttpkg.config.lowercase and "on" or "off",
     sttpkg.config.silenceTimeout or 0))
+  cecho("<light_slate_gray>[STT] sensitivity " .. tostring(sttpkg.config.sensitivity) .. "\n")
 elseif sub == "autosend" and onOff(rest) ~= nil then
   sttpkg.config.autosend = onOff(rest)
   sttpkg.saveConfig()
@@ -52,6 +53,14 @@ elseif sub == "timeout" and tonumber(rest) then
     stt.setSilenceTimeout(sttpkg.config.silenceTimeout)
   end
   cecho("<light_slate_gray>[STT] silence timeout " .. sttpkg.config.silenceTimeout .. "ms\n")
+elseif sub == "sensitivity" and (rest == "short" or rest == "default" or rest == "long") then
+  sttpkg.config.sensitivity = rest
+  sttpkg.saveConfig()
+  if sttpkg.applySensitivity() then
+    cecho("<light_slate_gray>[STT] sensitivity " .. rest .. "\n")
+  else
+    cecho("<orange>[STT] this Mudlet build cannot change sensitivity\n")
+  end
 elseif sub == "models" then
   if not sttpkg.bridgeAvailable() then
     cecho("<orange>[STT] No speech bridge in this Mudlet build.\n")
@@ -73,6 +82,7 @@ else
   stt preview on|off     show partial results live in the command line
   stt correct on|off     correct finals against the game vocabulary (MCVP)
   stt lowercase on|off   lowercase the first letter, the way commands are typed
+  stt sensitivity short|default|long   how soon a phrase counts as finished
   stt timeout <ms>       stop after this much silence; 0 keeps listening
   stt models       list installed speech models
 ]])
