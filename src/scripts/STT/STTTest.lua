@@ -292,11 +292,23 @@ function test.start(passes, phrases)
   return true
 end
 
+-- Seconds to keep swallowing results after a run ends. Stopping the engine
+-- makes it flush whatever it had decoded, which arrives as a final once the
+-- run is over: that speech was said to the test and must not reach the game
+-- just because the test finished before it did.
+local DRAIN_SECONDS = 2
+
+-- Input level below which a run's numbers should not be set against a louder
+-- run's. Provisional: picked before any level had been measured.
+local LOW_INPUT_LEVEL = 0.08
+
 function test.stop(quiet)
   if not test.active() then return false end
   clearTimer()
   local wasListening = test._run.wasListening
   test._run = nil
+  test._draining = true
+  tempTimer(DRAIN_SECONDS, function() test._draining = false end)
   if not wasListening then sttpkg.disable() end
   if not quiet then cecho("<light_slate_gray>[STT] test stopped\n")  end
   return true
@@ -314,8 +326,11 @@ function test.report()
     math.floor(summary.wordErrorRate * 100 + 0.5)))
   cecho(string.format("<white>  first word lost %d, heard nothing %d\n",
     summary.firstWordLost, summary.heardNothing))
+  -- The threshold is provisional: it was chosen before any run had been
+  -- measured, and only comparing runs at different speaking volumes will say
+  -- what level this system actually wants
   cecho(string.format("<white>  mean input level %.3f%s\n", summary.meanPeakLevel,
-    summary.meanPeakLevel < 0.08 and " <orange>(quiet - speak up or move closer before comparing runs)" or ""))
+    summary.meanPeakLevel < LOW_INPUT_LEVEL and " <orange>(low - compare only with runs at a similar level)" or ""))
 
   -- Which phrases failed, and how consistently. A phrase missed every pass is
   -- a fault with a cause worth finding; one missed occasionally is variance,
@@ -343,7 +358,12 @@ function test.report()
 end
 
 --- Called by STTCore for every final result while a test is running.
+-- Returning true means the result has been dealt with and must go no further.
 function test.submit(text)
+  if test._draining then
+    -- The engine's parting flush, belonging to a run that has ended
+    return true
+  end
   if not test.active() then return false end
   finishPhrase(text)
   return true
