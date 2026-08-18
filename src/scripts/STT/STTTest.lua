@@ -156,8 +156,19 @@ local function settingsLine()
     local words = sttpkg.vocabularySize and sttpkg.vocabularySize() or nil
     correction = words and string.format("on (%d words)", words) or "on (no vocabulary)"
   end
-  return string.format("engine %s, model %s, sensitivity %s, correction %s",
-    engine, model, sensitivity, correction)
+  -- Biasing is the one setting that changes what the decoder itself does
+  -- rather than what happens to its output, so a run has to say whether it
+  -- was in effect
+  local biasing = "unsupported by this model"
+  if sttpkg.bridgeAvailable() then
+    local info = stt.getInfo()
+    if info.capabilities and info.capabilities.biasing then
+      biasing = string.format("%d words", sttpkg._biasWords or 0)
+    end
+  end
+
+  return string.format("engine %s, model %s, sensitivity %s, correction %s, biasing %s",
+    engine, model, sensitivity, correction, biasing)
 end
 
 local prompt

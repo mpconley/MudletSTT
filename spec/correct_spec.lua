@@ -86,6 +86,26 @@ describe("sttpkg.correct", function()
     end)
   end)
 
+  describe("commandCase", function()
+    it("lowers an all-capitals transcript entirely", function()
+      assert.equals("kill goblin", correct.commandCase("KILL GOBLIN"))
+      assert.equals("look", correct.commandCase("LOOK"))
+    end)
+
+    it("lowers only the first letter of sentence-cased text", function()
+      assert.equals("kill Grendel", correct.commandCase("Kill Grendel"))
+    end)
+
+    it("leaves text that is already command-cased alone", function()
+      assert.equals("get sword", correct.commandCase("get sword"))
+    end)
+
+    it("treats text with no letters at all as unchanged", function()
+      assert.equals("", correct.commandCase(""))
+      assert.equals("123", correct.commandCase("123"))
+    end)
+  end)
+
   describe("apply", function()
     local leading = lex({ "kill", "look", "inventory" })
     local argument = lex({ "goblin", "sword", "north" })

@@ -96,6 +96,20 @@ function correct.lowerFirst(text)
   return text:sub(1, 1):lower() .. text:sub(2)
 end
 
+--- Case a phrase the way a player would have typed it. Two recogniser
+-- conventions have to be met: prose models sentence-case their output
+-- ("Smile"), and sub-word models trained on upper-cased text return the lot
+-- in capitals ("KILL GOBLIN"). Text carrying no lower case at all is taken as
+-- the second kind and lowered throughout; anything else only loses its first
+-- capital, so proper nouns in arguments survive.
+function correct.commandCase(text)
+  text = tostring(text or "")
+  if text:find("%u") and not text:find("%l") then
+    return text:lower()
+  end
+  return correct.lowerFirst(text)
+end
+
 --- Correct a phrase: the first token against the leading lexicon (command
 -- words), every later token against the argument lexicon (targets, items).
 -- Either lexicon may be nil to skip that position. Returns the corrected

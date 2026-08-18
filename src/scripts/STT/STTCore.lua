@@ -80,7 +80,39 @@ function sttpkg.ensureInit()
     stt.setSilenceTimeout(sttpkg.config.silenceTimeout)
   end
   sttpkg.applySensitivity()
+  sttpkg.applyVocabulary()
   return true
+end
+
+-- The engine scores every biasing word against every alternative path, so the
+-- list has to be a shortlist rather than a dictionary. MCVP's own tiers do the
+-- choosing: biasable already drops protected words and the lowest-priority
+-- tier, and this caps what is left.
+local MAX_BIAS_WORDS = 300
+
+--- Push the game's vocabulary into the decoder, where a backend can bias
+-- recognition toward it. Returns the number of words applied, 0 when the
+-- backend declined - which is not a failure but the signal to keep relying on
+-- client-side correction instead.
+function sttpkg.applyVocabulary()
+  if not sttpkg.bridgeAvailable() or type(stt.setVocabulary) ~= "function" then
+    return 0
+  end
+  if not (mcvp and mcvp.entries) then return 0 end
+
+  local words, seen = {}, {}
+  for _, entry in ipairs(mcvp.entries({ biasable = true })) do
+    local word = tostring(entry.word or ""):lower()
+    if word ~= "" and not seen[word] then
+      seen[word] = true
+      words[#words + 1] = word
+      if #words >= MAX_BIAS_WORDS then break end
+    end
+  end
+  if #words == 0 then return 0 end
+
+  sttpkg._biasWords = stt.setVocabulary(words) and #words or 0
+  return sttpkg._biasWords
 end
 
 --- Push the configured sensitivity to the engine, if this core has the
@@ -187,7 +219,7 @@ end
 function sttpkg.prepare(text)
   local prepared = sttpkg.correctText(text)
   if sttpkg.config.lowercase then
-    prepared = sttpkg.correct.lowerFirst(prepared)
+    prepared = sttpkg.correct.commandCase(prepared)
   end
   return prepared
 end
@@ -243,7 +275,7 @@ local function handlePartial(_, text)
     -- deliberately not applied here: a half-spoken word is not yet a
     -- misrecognition to fix.
     if sttpkg.config.lowercase then
-      text = sttpkg.correct.lowerFirst(text)
+      text = sttpkg.correct.commandCase(text)
     end
     printCmdLine(text)
     sttpkg._preview = text
