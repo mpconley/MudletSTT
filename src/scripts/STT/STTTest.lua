@@ -33,6 +33,12 @@ test.phrases = {
 -- Seconds to wait for a phrase before recording it as not heard
 local PHRASE_TIMEOUT = 12
 
+-- A microphone just opened is not yet delivering audio: the device takes a
+-- moment to start, and a phrase spoken into that gap is simply not there to
+-- recognise. Prompting immediately after starting to listen made the first
+-- phrase of a run fail for reasons that had nothing to do with the engine.
+local MICROPHONE_WARMUP_SECONDS = 1.5
+
 --- Lowercased, trimmed, single-spaced text, so scoring compares words rather
 -- than spacing and case.
 function test.normalize(text)
@@ -275,7 +281,14 @@ function test.start(passes, phrases)
 
   cecho("<white>[STT] quality test: " .. settingsLine() .. "\n")
   cecho("<light_slate_gray>Say each phrase, then pause. Nothing is sent to the game. Stop with: stt test stop\n")
-  prompt()
+
+  if test._run.wasListening then
+    -- Already open, so already delivering audio
+    prompt()
+  else
+    cecho("<light_slate_gray>Waiting for the microphone to open...\n")
+    tempTimer(MICROPHONE_WARMUP_SECONDS, function() prompt() end)
+  end
   return true
 end
 
