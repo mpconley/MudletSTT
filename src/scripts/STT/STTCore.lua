@@ -83,10 +83,18 @@ end
 function sttpkg.enable()
   if not sttpkg.ensureInit() then return end
   stt.start()
+  -- Reported rather than assumed: start can be refused, and a microphone
+  -- that is not actually live is the one failure worth never guessing about
+  if sttpkg.listening() then
+    cecho("<green>[STT] listening\n")
+  end
 end
 
 function sttpkg.disable()
-  if sttpkg.bridgeAvailable() and stt.isListening() then stt.stop() end
+  if sttpkg.bridgeAvailable() and stt.isListening() then
+    stt.stop()
+    cecho("<light_slate_gray>[STT] stopped\n")
+  end
 end
 
 function sttpkg.toggle()
@@ -135,13 +143,32 @@ end
 -- package update never leaves stale ones behind.
 sttpkg._handlers = sttpkg._handlers or {}
 
+-- What this package last wrote into the command line, so it can tell its own
+-- preview from something the player typed and is still working on
+sttpkg._preview = sttpkg._preview or nil
+
+--- True when the command line holds nothing but this package's own preview,
+-- and may therefore be overwritten or cleared without losing typing. A core
+-- without getCmdLine() cannot tell, and keeps the old always-write behaviour.
+local function cmdLineIsOurs()
+  if type(getCmdLine) ~= "function" then return true end
+  local current = getCmdLine()
+  return current == "" or current == sttpkg._preview
+end
+
 local function handleFinal(_, text)
   local corrected = sttpkg.prepare(text)
   if sttpkg.config.autosend then
     send(corrected)
-    clearCmdLine()
+    -- Only our own preview is cleared; half-typed input survives being
+    -- spoken over
+    if cmdLineIsOurs() then
+      clearCmdLine()
+      sttpkg._preview = nil
+    end
   else
     printCmdLine(corrected)
+    sttpkg._preview = corrected
   end
   -- Both forms surface so other packages can consume speech without
   -- re-implementing correction
@@ -149,7 +176,10 @@ local function handleFinal(_, text)
 end
 
 local function handlePartial(_, text)
-  if sttpkg.config.livePreview and not sttpkg.config.autosend then
+  -- Also previewed in autosend mode: the words appear as they are heard and
+  -- vanish when the final is sent, which is the only sign the microphone is
+  -- live when nothing is left in the command line to look at
+  if sttpkg.config.livePreview then
     -- Cased like the final that will replace it, so the preview does not
     -- visibly re-case itself at the end of every utterance. Correction is
     -- deliberately not applied here: a half-spoken word is not yet a
@@ -158,6 +188,7 @@ local function handlePartial(_, text)
       text = sttpkg.correct.lowerFirst(text)
     end
     printCmdLine(text)
+    sttpkg._preview = text
   end
 end
 
