@@ -78,6 +78,15 @@ elseif sub == "model" and rest ~= "" and rest ~= nil then
   else
     cecho("<orange>[STT] " .. tostring(err) .. "\n")
   end
+elseif sub == "bias" and onOff(rest) ~= nil then
+  sttpkg.config.biasing = onOff(rest)
+  sttpkg.saveConfig()
+  local applied = sttpkg.applyVocabulary()
+  if sttpkg.config.biasing and applied == 0 then
+    cecho("<orange>[STT] biasing on, but this model cannot bias its decoding\n")
+  else
+    cecho(string.format("<light_slate_gray>[STT] biasing %s (%d words)\n", rest, applied))
+  end
 elseif sub == "models" then
   if not sttpkg.bridgeAvailable() then
     cecho("<orange>[STT] No speech bridge in this Mudlet build.\n")
@@ -103,6 +112,7 @@ else
   stt timeout <ms>       stop after this much silence; 0 keeps listening
   stt test [n]     score recognition against set phrases, n passes (stt test stop)
   stt model <name> load a different installed model, to compare them
+  stt bias on|off  bias the decoder toward the game's vocabulary (measure it)
   stt models       list installed speech models
 ]])
 end

@@ -15,6 +15,12 @@ sttpkg.config = sttpkg.config or {
   correction = true,    -- apply MCVP vocabulary correction to finals
   lowercase = true,     -- lowercase the first character, the way commands are typed
   silenceTimeout = 0,   -- ms of silence before listening self-stops; 0 = open-ended
+  -- Off until it earns its place: measured against a 300-word game vocabulary
+  -- it cost more than it gave, taking exact matches from 83% to 73%. Boosting
+  -- a vocabulary helps only for words that are in it, and a game publishing
+  -- command aliases but not item nouns offers plenty to boost wrongly and
+  -- little to boost rightly. "stt bias on" to measure it on another game.
+  biasing = false,
   -- Measured, not assumed: "short" was the obvious choice for commands and
   -- lost to "default" on every number "stt test" reports - a one-word command
   -- can be cut off before the decoder has emitted it. A wrong command costs
@@ -90,6 +96,11 @@ end
 -- tier, and this caps what is left.
 local MAX_BIAS_WORDS = 300
 
+-- Single letters and pairs are movement and command aliases - n, s, ne, inv -
+-- and boosting them is how "north" came back as "n". They carry the least
+-- meaning and the most weight, so they are left out of biasing entirely.
+local MIN_BIAS_WORD_LENGTH = 3
+
 --- Push the game's vocabulary into the decoder, where a backend can bias
 -- recognition toward it. Returns the number of words applied, 0 when the
 -- backend declined - which is not a failure but the signal to keep relying on
@@ -99,11 +110,18 @@ function sttpkg.applyVocabulary()
     return 0
   end
   if not (mcvp and mcvp.entries) then return 0 end
+  if not sttpkg.config.biasing then
+    -- Withdraw anything applied earlier, so turning it off takes effect
+    -- rather than waiting for a restart
+    if (sttpkg._biasWords or 0) > 0 then stt.setVocabulary({}) end
+    sttpkg._biasWords = 0
+    return 0
+  end
 
   local words, seen = {}, {}
   for _, entry in ipairs(mcvp.entries({ biasable = true })) do
     local word = tostring(entry.word or ""):lower()
-    if word ~= "" and not seen[word] then
+    if #word >= MIN_BIAS_WORD_LENGTH and not seen[word] then
       seen[word] = true
       words[#words + 1] = word
       if #words >= MAX_BIAS_WORDS then break end
