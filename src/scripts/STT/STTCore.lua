@@ -15,10 +15,12 @@ sttpkg.config = sttpkg.config or {
   correction = true,    -- apply MCVP vocabulary correction to finals
   lowercase = true,     -- lowercase the first character, the way commands are typed
   silenceTimeout = 0,   -- ms of silence before listening self-stops; 0 = open-ended
-  -- "short" suits what this package is for: commands are a word or two, and
-  -- waiting out a dictation-length pause before each one is the difference
-  -- between talking to a game and dictating to it
-  sensitivity = "short",
+  -- Measured, not assumed: "short" was the obvious choice for commands and
+  -- lost to "default" on every number "stt test" reports - a one-word command
+  -- can be cut off before the decoder has emitted it. A wrong command costs
+  -- more than a slow one, so accuracy wins the default and "short" stays
+  -- available for anyone who prefers the speed.
+  sensitivity = "default",
 }
 
 local CONFIG_FILE = "stt-package-config.lua"
@@ -133,6 +135,17 @@ local function lexicons()
     sttpkg._lex.argument = sttpkg.correct.lexicon(mcvp.entries({ correctable = true, leading = false }))
   end
   return sttpkg._lex.leading, sttpkg._lex.argument
+end
+
+--- How many words correction actually has to work with, or nil when no
+-- vocabulary is loaded at all. "Correction on" with nothing to correct
+-- against looks identical to correction working, which would quietly
+-- misattribute a test result, so the harness reports this rather than the
+-- setting alone.
+function sttpkg.vocabularySize()
+  local leading, argument = lexicons()
+  if not leading then return nil end
+  return #leading.list + (argument and #argument.list or 0)
 end
 
 --- Recognised text with MCVP correction applied, when enabled and available.

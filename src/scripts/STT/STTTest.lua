@@ -124,8 +124,13 @@ local function settingsLine()
     model = (info.modelPath or ""):match("[^/]+$") or "none"
     sensitivity = info.sensitivity or tostring(sttpkg.config.sensitivity)
   end
+  local correction = "off"
+  if sttpkg.config.correction then
+    local words = sttpkg.vocabularySize and sttpkg.vocabularySize() or nil
+    correction = words and string.format("on (%d words)", words) or "on (no vocabulary)"
+  end
   return string.format("engine %s, model %s, sensitivity %s, correction %s",
-    engine, model, sensitivity, sttpkg.config.correction and "on" or "off")
+    engine, model, sensitivity, correction)
 end
 
 local prompt
