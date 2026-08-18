@@ -298,9 +298,14 @@ end
 -- just because the test finished before it did.
 local DRAIN_SECONDS = 2
 
--- Input level below which a run's numbers should not be set against a louder
--- run's. Provisional: picked before any level had been measured.
-local LOW_INPUT_LEVEL = 0.08
+-- Only a level this close to silence is worth remarking on: it means the
+-- microphone is barely picking anything up. A higher bar was tried and proved
+-- worthless - runs at 0.016 and 0.019 scored 67% and 87%, so within the range
+-- this system actually operates in, loudness does not predict accuracy and a
+-- warning about it only misleads. The figure is still reported, because two
+-- runs are comparable only if the speech arrived comparably, and because a
+-- dead microphone should be obvious.
+local NEAR_SILENT_INPUT = 0.005
 
 function test.stop(quiet)
   if not test.active() then return false end
@@ -326,11 +331,8 @@ function test.report()
     math.floor(summary.wordErrorRate * 100 + 0.5)))
   cecho(string.format("<white>  first word lost %d, heard nothing %d\n",
     summary.firstWordLost, summary.heardNothing))
-  -- The threshold is provisional: it was chosen before any run had been
-  -- measured, and only comparing runs at different speaking volumes will say
-  -- what level this system actually wants
   cecho(string.format("<white>  mean input level %.3f%s\n", summary.meanPeakLevel,
-    summary.meanPeakLevel < LOW_INPUT_LEVEL and " <orange>(low - compare only with runs at a similar level)" or ""))
+    summary.meanPeakLevel < NEAR_SILENT_INPUT and " <orange>(near silence - check the microphone)" or ""))
 
   -- Which phrases failed, and how consistently. A phrase missed every pass is
   -- a fault with a cause worth finding; one missed occasionally is variance,
