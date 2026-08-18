@@ -92,6 +92,11 @@ correction for free.
 ## Development
 
 Scripts live under `src/scripts/STT/`; the correction engine
-(`STTCorrect.lua`) is pure Lua and tested with
-[busted](https://lunarmodules.github.io/busted/): `busted spec`. Builds use
-[muddler](https://github.com/demonnic/muddler).
+(`STTCorrect.lua`) and the test scoring (`STTTest.lua`) are pure Lua and
+tested with [busted](https://lunarmodules.github.io/busted/): `busted spec`.
+Builds use [muddler](https://github.com/demonnic/muddler).
+
+Run `luacheck src spec` before building. These scripts run inside Mudlet, so
+a call to something that does not exist raises nothing until that line
+executes — which in this package means during a live microphone test.
+luacheck catches it in a second instead.

@@ -188,6 +188,29 @@ end
 
 local prompt
 
+-- How loudly the phrase arrived, sampled while it is being spoken. Without
+-- it a phrase the engine misheard and one the microphone barely received look
+-- identical in the results, and they call for opposite remedies.
+local LEVEL_SAMPLE_SECONDS = 0.1
+
+local function sampleLevel()
+  local run = test._run
+  if not run then return end
+  if sttpkg.bridgeAvailable() then
+    local level = stt.getInfo().audioLevel or 0
+    if level > run.peakLevel then run.peakLevel = level end
+  end
+  run.levelTimerId = tempTimer(LEVEL_SAMPLE_SECONDS, sampleLevel)
+end
+
+local function stopSampling()
+  local run = test._run
+  if run and run.levelTimerId then
+    killTimer(run.levelTimerId)
+    run.levelTimerId = nil
+  end
+end
+
 local function finishPhrase(heard)
   local run = test._run
   if not run then return end
@@ -222,29 +245,6 @@ local function finishPhrase(heard)
     end
   else
     prompt()
-  end
-end
-
--- How loudly the phrase arrived, sampled while it is being spoken. Without
--- it a phrase the engine misheard and one the microphone barely received look
--- identical in the results, and they call for opposite remedies.
-local LEVEL_SAMPLE_SECONDS = 0.1
-
-local function sampleLevel()
-  local run = test._run
-  if not run then return end
-  if sttpkg.bridgeAvailable() then
-    local level = stt.getInfo().audioLevel or 0
-    if level > run.peakLevel then run.peakLevel = level end
-  end
-  run.levelTimerId = tempTimer(LEVEL_SAMPLE_SECONDS, sampleLevel)
-end
-
-local function stopSampling()
-  local run = test._run
-  if run and run.levelTimerId then
-    killTimer(run.levelTimerId)
-    run.levelTimerId = nil
   end
 end
 

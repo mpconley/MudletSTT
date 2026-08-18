@@ -288,6 +288,12 @@ local function handleFinal(_, text)
 end
 
 local function handlePartial(_, text)
+  -- A test scores speech rather than acting on it, and writing a preview into
+  -- the command line during one makes a scored phrase look like a routed
+  -- command - which is exactly how a stalled test was misread as bad routing
+  if sttpkg.test and sttpkg.test.active and sttpkg.test.active() then
+    return
+  end
   -- Also previewed in autosend mode: the words appear as they are heard and
   -- vanish when the final is sent, which is the only sign the microphone is
   -- live when nothing is left in the command line to look at
