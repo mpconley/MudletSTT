@@ -141,6 +141,10 @@ function sttpkg.useModel(fragment)
           local loaded, err = stt.init(model.path)
           if not loaded then return nil, tostring(err) end
           sttpkg.applySensitivity()
+          -- Biasing is a property of the model, so a switch has to re-offer
+          -- the vocabulary: the model just loaded may accept what the last
+          -- one refused
+          sttpkg.applyVocabulary()
           if wasListening then stt.start() end
           return model.name
         end
