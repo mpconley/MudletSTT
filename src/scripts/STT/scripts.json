@@ -2,6 +2,12 @@
        {
               "isActive": "yes",
               "isFolder": "no",
+              "name": "STTVocab",
+              "script": ""
+       },
+       {
+              "isActive": "yes",
+              "isFolder": "no",
               "name": "STTCorrect",
               "script": ""
        },
