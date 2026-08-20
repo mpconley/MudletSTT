@@ -66,6 +66,16 @@ elseif sub == "test" then
     if not sttpkg.test.stop() then
       cecho("<light_slate_gray>[STT] no test is running\n")
     end
+  elseif rest and rest:find("^scope") then
+    -- Phrases naming what is actually in this room and inventory, which is
+    -- the only way to measure whether biasing toward them helps
+    local passes = tonumber(rest:match("scope%s+(%d+)"))
+    local phrases = sttpkg.test.scopePhrases()
+    if #phrases == 0 then
+      cecho("<orange>[STT] nothing in reach to build phrases from - try a room with things in it\n")
+    else
+      sttpkg.test.start(passes, phrases)
+    end
   else
     -- "stt test 3" runs the phrases three times: one pass through ten phrases
     -- is too few to tell a real difference from the spread between runs
@@ -111,6 +121,7 @@ else
   stt sensitivity short|default|long   how soon a phrase counts as finished
   stt timeout <ms>       stop after this much silence; 0 keeps listening
   stt test [n]     score recognition against set phrases, n passes (stt test stop)
+  stt test scope [n]   score phrases naming what is in this room and inventory
   stt model <name> load a different installed model, to compare them
   stt bias on|off  bias the decoder toward the game's vocabulary (measure it)
   stt models       list installed speech models

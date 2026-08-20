@@ -258,6 +258,25 @@ prompt = function()
   sampleLevel()
 end
 
+--- Phrases built from what is actually in reach, so a run measures the words
+-- a player would really say here rather than a fixed list that may name
+-- nothing this game has. Verbs come from what the catalog says takes an item.
+function test.scopePhrases(limit)
+  if not (sttpkg.context and sttpkg.context.inScope) then return {} end
+  limit = limit or 8
+
+  local phrases = {}
+  for _, word in ipairs(sttpkg.context.inScope({ item = true })) do
+    phrases[#phrases + 1] = "get " .. word
+    if #phrases >= limit then break end
+  end
+  for _, word in ipairs(sttpkg.context.inScope({ living = true })) do
+    if #phrases >= limit then break end
+    phrases[#phrases + 1] = "kill " .. word
+  end
+  return phrases
+end
+
 --- Begin a run. Recognised text is scored instead of reaching the game, so a
 -- test can be run while connected without playing the character.
 function test.start(passes, phrases)

@@ -119,13 +119,26 @@ function sttpkg.applyVocabulary()
   end
 
   local words, seen = {}, {}
-  for _, entry in ipairs(mcvp.entries({ biasable = true })) do
-    local word = tostring(entry.word or ""):lower()
-    if #word >= MIN_BIAS_WORD_LENGTH and not seen[word] then
+  local function offer(word)
+    word = tostring(word or ""):lower()
+    if #word >= MIN_BIAS_WORD_LENGTH and not seen[word] and #words < MAX_BIAS_WORDS then
       seen[word] = true
       words[#words + 1] = word
-      if #words >= MAX_BIAS_WORDS then break end
     end
+  end
+
+  -- What is in reach goes in first. The budget is small and these are the
+  -- words about to be spoken, whereas most of the catalog is commands the
+  -- recogniser already gets right; spending the budget the other way round is
+  -- what made biasing measure worse than not biasing at all.
+  if sttpkg.context and sttpkg.context.inScope then
+    for _, word in ipairs(sttpkg.context.inScope()) do
+      offer(word)
+    end
+  end
+
+  for _, entry in ipairs(mcvp.entries({ biasable = true })) do
+    offer(entry.word)
   end
   if #words == 0 then return 0 end
 
@@ -178,6 +191,9 @@ end
 
 function sttpkg.enable()
   if not sttpkg.ensureInit() then return end
+  -- Sampled here rather than tracked continuously, as the vocabulary standard
+  -- directs: what is in reach matters at the moment listening begins
+  sttpkg.applyVocabulary()
   stt.start()
   -- Reported rather than assumed: start can be refused, and a microphone
   -- that is not actually live is the one failure worth never guessing about
