@@ -2,3 +2,4 @@ build/
 *.mpackage
 version.txt
 .muddler
+.output

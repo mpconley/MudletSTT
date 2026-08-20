@@ -14,6 +14,8 @@ read_globals = {
   "tempTimer", "killTimer",
   "registerAnonymousEventHandler", "killAnonymousEventHandler",
   "getMudletHomeDir", "io", "table",
+  -- Mudlet fills this in from the game's GMCP messages
+  "gmcp",
   "addToolbarButton", "removeToolbarButton", "setToolbarButtonState",
   "setToolbarButtonIcon", "setToolbarButtonTooltip", "setToolbarButtonEnabled",
   "setToolbarButtonPulse",

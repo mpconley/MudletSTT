@@ -74,7 +74,8 @@ function sttpkg.ensureInit()
   if stt.isInitialized() then return true end
   local model = sttpkg.findModel()
   if not model then
-    cecho("<orange>[STT] No speech model installed. Install an engine pack, or place a model under stt.getModelPath().\n")
+    cecho("<orange>[STT] No speech model installed. Install an engine pack, "
+      .. "or place a model under stt.getModelPath().\n")
     return false
   end
   local ok, err = stt.init(model)

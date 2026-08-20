@@ -20,7 +20,8 @@ elseif sub == "status" then
   local state = "no speech bridge in this Mudlet build"
   if sttpkg.bridgeAvailable() then
     local info = stt.getInfo()
-    state = string.format("engine %s, state %s, model %s", info.backend or "?", info.state or "?", (info.modelPath or ""):match("[^/]+$") or "none")
+    local modelName = (info.modelPath or ""):match("[^/]+$") or "none"
+    state = string.format("engine %s, state %s, model %s", info.backend or "?", info.state or "?", modelName)
   end
   cecho("<light_slate_gray>[STT] " .. state .. "\n")
   cecho(string.format("<light_slate_gray>[STT] autosend %s, preview %s, correction %s, lowercase %s, timeout %dms\n",
