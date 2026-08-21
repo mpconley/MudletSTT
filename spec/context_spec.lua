@@ -1,8 +1,10 @@
--- Tests for sttpkg.context, which turns a game's room and inventory messages
--- into the nouns a player is about to say.
+-- Tests for the StickMUD context adapter: turning this game's room and
+-- inventory messages into the updates mcvp.context folds in. The generic half
+-- - noun extraction, holding what is present, answering by slot - is tested
+-- in MudletMCVP, not here.
 --
--- The payloads here are copied from a real StickMUD session, quirks included:
--- an empty location arrives as the string "" rather than an empty array, item
+-- The payloads are copied from a real StickMUD session, quirks included: an
+-- empty location arrives as the string "" rather than an empty array, item
 -- names are display phrases with articles, and a room can hold thirty copies
 -- of one thing.
 dofile("src/scripts/STT/STTContext.lua")
@@ -12,160 +14,88 @@ local function entry(id, name, attrib)
   return { id = id, name = name, attrib = attrib, icon = 0 }
 end
 
-describe("sttpkg.context", function()
+local LIST = "gmcp.Char.Items.List"
+local ADD = "gmcp.Char.Items.Add"
+local REMOVE = "gmcp.Char.Items.Remove"
 
-  describe("nouns", function()
-    it("drops the article a player never says", function()
-      assert.same({ "bottle", "beer" }, context.nouns("A bottle of beer"))
-      assert.same({ "torch" }, context.nouns("A torch"))
+describe("the StickMUD context adapter", function()
+
+  describe("Char.Items.List", function()
+    it("replaces a location with what it now holds", function()
+      local update = context.read(LIST, { location = "room", items = {
+        entry(1, "A torch", "t"),
+        entry(2, "An old elf", "m"),
+      }})
+      assert.equal("room", update.place)
+      assert.same({ id = 1, name = "A torch", slot = "%item" }, update.replace[1])
+      assert.same({ id = 2, name = "An old elf", slot = "%living" }, update.replace[2])
     end)
 
-    it("keeps every content word, so either can be spoken", function()
-      assert.same({ "lucky", "coin" }, context.nouns("A lucky coin"))
-      assert.same({ "magic", "chalk" }, context.nouns("A magic chalk"))
+    it("reads the driver's empty location as empty, not as no message", function()
+      -- StickMUD sends "" rather than [] for a location holding nothing, and
+      -- an empty room has to clear the room rather than leave it stale
+      local update = context.read(LIST, { location = "room", items = "" })
+      assert.equal("room", update.place)
+      assert.same({}, update.replace)
     end)
 
-    it("drops words too short to be worth biasing toward", function()
-      -- "of" and "an" are stopwords; "elf" survives at three letters
-      assert.same({ "old", "elf" }, context.nouns("An old elf"))
+    it("keeps inventory and room apart", function()
+      assert.equal("inv", context.read(LIST, { location = "inv", items = {} }).place)
     end)
 
-    it("survives punctuation, empty and missing names", function()
-      assert.same({ "grendel" }, context.nouns("Grendel!"))
-      assert.same({}, context.nouns(""))
-      assert.same({}, context.nouns(nil))
-    end)
-  end)
-
-  describe("applyList", function()
-    it("reads a room full of things", function()
-      local state = context.newState()
-      context.applyList(state, {
-        location = "room",
-        items = {
-          entry("a1", "A bottle of beer", "t"),
-          entry("a2", "A torch", "t"),
-          entry("a3", "Grendel", "m"),
-        },
-      })
-      local words = context.words(state)
-      table.sort(words)
-      -- "A bottle of beer" is two nouns, either of which a player may say
-      assert.same({ "beer", "bottle", "grendel", "torch" }, words)
-    end)
-
-    it("treats an empty location sent as a string as empty, not as absent", function()
-      local state = context.newState()
-      context.applyList(state, { location = "room", items = { entry("a1", "A torch", "t") } })
-      context.applyList(state, { location = "room", items = "" })
-      assert.same({}, context.words(state))
-    end)
-
-    it("replaces rather than merges, because a list is the whole location", function()
-      local state = context.newState()
-      context.applyList(state, { location = "room", items = { entry("a1", "A torch", "t") } })
-      context.applyList(state, { location = "room", items = { entry("a2", "A shield", "W") } })
-      assert.same({ "shield" }, context.words(state))
-    end)
-
-    it("keeps room and inventory apart", function()
-      local state = context.newState()
-      context.applyList(state, { location = "room", items = { entry("a1", "A torch", "t") } })
-      context.applyList(state, { location = "inv", items = { entry("b1", "A sword", "l") } })
-      local words = context.words(state)
-      table.sort(words)
-      assert.same({ "sword", "torch" }, words)
-    end)
-
-    it("ignores a location it does not know", function()
-      local state = context.newState()
-      context.applyList(state, { location = "vault", items = { entry("a1", "A torch", "t") } })
-      assert.same({}, context.words(state))
-    end)
-
-    it("skips entries carrying no attrib at all", function()
-      -- On this game those are special objects rather than things a player
-      -- refers to by name
-      local state = context.newState()
-      context.applyList(state, {
-        location = "room",
-        items = { entry("a1", "Tim the Enchanter", ""), entry("a2", "A torch", "t") },
-      })
-      assert.same({ "torch" }, context.words(state))
-    end)
-  end)
-
-  describe("deduplication", function()
-    it("counts thirty torches once", function()
-      local items = {}
-      for i = 1, 30 do
-        items[#items + 1] = entry("id" .. i, "A torch", "t")
-      end
-      local state = context.newState()
-      context.applyList(state, { location = "room", items = items })
-      assert.same({ "torch" }, context.words(state),
-        "a biasing budget spent thirty times on one word is a budget wasted")
-    end)
-  end)
-
-  describe("add and remove", function()
-    it("adds one thing without disturbing the rest", function()
-      local state = context.newState()
-      context.applyList(state, { location = "room", items = { entry("a1", "A torch", "t") } })
-      context.applyAdd(state, { location = "room", item = entry("a2", "A shield", "W") })
-      local words = context.words(state)
-      table.sort(words)
-      assert.same({ "shield", "torch" }, words)
-    end)
-
-    it("removes by id, which is what the game sends", function()
-      local state = context.newState()
-      context.applyList(state, {
-        location = "room",
-        items = { entry("a1", "A torch", "t"), entry("a2", "A shield", "W") },
-      })
-      context.applyRemove(state, { location = "room", item = entry("a1", "A torch", "t") })
-      assert.same({ "shield" }, context.words(state))
-    end)
-
-    it("ignores a removal for something it never had", function()
-      local state = context.newState()
-      context.applyList(state, { location = "room", items = { entry("a1", "A torch", "t") } })
-      context.applyRemove(state, { location = "room", item = entry("zz", "A ghost", "t") })
-      assert.same({ "torch" }, context.words(state))
+    it("ignores a location this game does not name", function()
+      assert.is_nil(context.read(LIST, { location = "elsewhere", items = {} }))
+      assert.is_nil(context.read(LIST, { items = {} }))
+      assert.is_nil(context.read(LIST, nil))
     end)
   end)
 
   describe("classification", function()
-    local function scoped()
-      local state = context.newState()
-      context.applyList(state, {
-        location = "room",
-        items = { entry("a1", "A torch", "t"), entry("a2", "Grendel", "m") },
-      })
-      return state
-    end
-
-    it("separates creatures from objects for slot-aware use", function()
-      assert.same({ "grendel" }, context.words(scoped(), { living = true }))
-      assert.same({ "torch" }, context.words(scoped(), { item = true }))
+    it("calls the monster attrib a living thing and everything else an item", function()
+      local update = context.read(LIST, { location = "room", items = {
+        entry(1, "A dead rat", "d"),
+        entry(2, "A rat", "m"),
+        entry(3, "A worn cloak", "w"),
+      }})
+      assert.same({ "%item", "%living", "%item" },
+                  { update.replace[1].slot, update.replace[2].slot, update.replace[3].slot })
     end)
 
-    it("offers both together for biasing, which needs no distinction", function()
-      local words = context.words(scoped())
-      table.sort(words)
-      assert.same({ "grendel", "torch" }, words)
+    it("skips an entry with no attrib, which is a special object here", function()
+      local update = context.read(LIST, { location = "room", items = {
+        entry(1, "A signpost", ""),
+        entry(2, "A torch", "t"),
+      }})
+      assert.equal(1, #update.replace)
+      assert.equal("A torch", update.replace[1].name)
     end)
   end)
 
-  describe("names", function()
-    it("reports the display names a person would read", function()
-      local state = context.newState()
-      context.applyList(state, {
-        location = "room",
-        items = { entry("a1", "A bottle of beer", "t"), entry("a2", "A bottle of beer", "t") },
-      })
-      assert.same({ "A bottle of beer" }, context.names(state))
+  describe("Char.Items.Add and Remove", function()
+    it("carries one arrival", function()
+      local update = context.read(ADD, { location = "room", item = entry(7, "A sword", "t") })
+      assert.same({ place = "room", add = { id = 7, name = "A sword", slot = "%item" } }, update)
+    end)
+
+    it("carries one departure by id, without needing to know what it was", function()
+      local update = context.read(REMOVE, { location = "room", item = { id = 7 } })
+      assert.same({ place = "room", remove = 7 }, update)
+    end)
+
+    it("ignores an arrival it cannot name or place", function()
+      assert.is_nil(context.read(ADD, { location = "room", item = entry(8, "", "t") }))
+      assert.is_nil(context.read(ADD, { location = "room" }))
+      assert.is_nil(context.read(REMOVE, { location = "room", item = {} }))
+    end)
+  end)
+
+  describe("without MudletMCVP", function()
+    it("binds nothing and answers with nothing, rather than erroring", function()
+      -- mcvp is absent in this spec run, which is the state of a profile that
+      -- has the speech package but not the vocabulary one
+      assert.is_false(context.setup())
+      assert.same({}, context.inScope())
+      assert.same({}, context.names())
     end)
   end)
 end)

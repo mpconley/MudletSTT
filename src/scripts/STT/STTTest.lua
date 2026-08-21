@@ -266,11 +266,11 @@ function test.scopePhrases(limit)
   limit = limit or 8
 
   local phrases = {}
-  for _, word in ipairs(sttpkg.context.inScope({ item = true })) do
+  for _, word in ipairs(sttpkg.context.inScope({ slot = "%item" })) do
     phrases[#phrases + 1] = "get " .. word
     if #phrases >= limit then break end
   end
-  for _, word in ipairs(sttpkg.context.inScope({ living = true })) do
+  for _, word in ipairs(sttpkg.context.inScope({ slot = "%living" })) do
     if #phrases >= limit then break end
     phrases[#phrases + 1] = "kill " .. word
   end
