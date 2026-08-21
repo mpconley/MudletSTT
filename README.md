@@ -34,6 +34,22 @@ when the game publishes one.
   (NVIDIA Nemotron - high accuracy, hands-free endpointing) and falls back
   to Vosk. Models install separately via engine packs.
 
+## Checking a live session
+
+`tools/mcvp-integration-pass.lua` is not part of the package - it is a script
+to paste into a connected profile when you want evidence rather than an
+impression. `_pass.check()` walks the chain and names the layer that failed:
+packages loaded, catalog received and its version, the biasing budget against
+the server's cap, whether a context adapter is bound and what is in reach,
+the engine and model, and finally how many words the engine actually took.
+
+`_pass.compare()` speaks the same phrases twice, once with biasing and once
+without, and prints the two scores side by side. It draws the order at random
+so practice does not favour whichever ran second, reuses one phrase list so
+moving between runs cannot skew it, and refuses to read anything into two
+runs that did not arrive at comparable volume.
+
+
 ## Commands
 
 ```

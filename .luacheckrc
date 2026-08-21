@@ -27,6 +27,13 @@ read_globals = {
 -- The package's own namespace, written by its scripts and read across them
 globals = { "sttpkg" }
 
+-- tools/ is not packaged - these are scripts a developer pastes into a live
+-- profile, so they see the package's namespaces plus Mudlet's own
+files["tools"] = {
+  globals = {"_pass", "sttpkg"},
+  read_globals = {"mcvp", "stt", "tempTimer"},
+}
+
 files["spec"] = {
   read_globals = { "describe", "it", "before_each", "after_each", "assert", "sttpkg" },
 }
