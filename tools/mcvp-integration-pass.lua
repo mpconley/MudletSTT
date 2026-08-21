@@ -52,11 +52,17 @@ function _pass.check()
     no("catalog received", "no Client.Vocabulary yet - check the server negotiated the package")
     note("on the server: gmcpvocab <character> prints what it would send")
   end
-  cecho(string.format("       entries=%d biasable=%d\n", #entries, #biasable))
-  if #biasable > 300 then
-    no("biasing budget within the server's cap", #biasable .. " over the 300 the daemon caps priority 1 at")
-  elseif #biasable > 0 then
-    ok("biasing budget within the server's cap", #biasable .. " of 300")
+  -- mcvp.entries{biasable} spans tiers 1 and 2, which the server caps
+  -- separately at 300 and 500. Comparing the combined count against the
+  -- tier-1 cap alone reports a healthy catalog as over budget.
+  local tierOne = mcvp.entries({biasable = true, maxPriority = 1})
+  cecho(string.format("       entries=%d biasable=%d (tier 1: %d)\n", #entries, #biasable, #tierOne))
+  if #tierOne > 300 then
+    no("tier 1 within the server's cap", #tierOne .. " over 300 - the daemon's demotion pass did not converge")
+  elseif #biasable > 800 then
+    no("catalog within the server's caps", #biasable .. " over the 300 + 500 the two tiers allow")
+  else
+    ok("catalog within the server's caps", string.format("tier 1 %d of 300, biasable %d of 800", #tierOne, #biasable))
   end
 
   -- 3. Context: is anything telling us what is in reach
@@ -80,8 +86,14 @@ function _pass.check()
   -- 4. The engine
   if hasBridge then
     local info = stt.getInfo()
+    -- backend names the engine that is loaded, which before stt.init() is
+    -- nothing - so it reads "none" even when a library is present and usable
+    local backend = info.backend or "?"
+    if backend == "none" or backend == "" then
+      backend = "not chosen until stt.init()"
+    end
     if stt.available() then
-      ok("engine library loaded", info.backend or "?")
+      ok("engine library loaded", backend)
     else
       no("engine library loaded", "install one under " .. stt.getLibraryPath())
     end
