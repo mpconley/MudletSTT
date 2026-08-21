@@ -16,9 +16,9 @@ read_globals = {
   "getMudletHomeDir", "io", "table",
   -- Mudlet fills this in from the game's GMCP messages
   "gmcp",
-  "addToolbarButton", "removeToolbarButton", "setToolbarButtonState",
-  "setToolbarButtonIcon", "setToolbarButtonTooltip", "setToolbarButtonEnabled",
-  "setToolbarButtonPulse",
+  -- The addon command API, which replaced the split toolbar/menu functions
+  "addCommand", "removeCommand", "enableCommand", "disableCommand",
+  "setCommandChecked", "setCommandIcon", "setCommandTooltip", "setCommandPulse",
   "stt", "mcvp",
   -- Set by Mudlet for alias and trigger scripts
   "matches",

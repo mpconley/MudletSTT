@@ -7,8 +7,10 @@ when the game publishes one.
 
 ## What it does
 
-- **Toggle listening** with the `stt` alias, or the microphone toolbar
-  button on Mudlet builds that provide the addon toolbar API.
+- **Toggle listening** with the `stt` alias, or the microphone command on
+  Mudlet builds that provide the addon command API - it appears both on the
+  main toolbar and under Options -> Extensions -> Speech, so it is reachable
+  even with the toolbar hidden, which is how a fresh profile starts.
 - **Command-line routing**: partial results preview live in the command
   line while you speak; each finished utterance replaces the line, ready
   for Return. `stt autosend on` sends utterances straight to the game
