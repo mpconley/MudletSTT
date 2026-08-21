@@ -71,7 +71,7 @@ function sttpkg.ensureInit()
     cecho("<orange>[STT] This Mudlet build has no speech-to-text support.\n")
     return false
   end
-  if stt.isInitialized() then return true end
+  if stt.initialized() then return true end
   local model = sttpkg.findModel()
   if not model then
     cecho("<orange>[STT] No speech model installed. Install an engine pack, "
@@ -187,7 +187,7 @@ function sttpkg.useModel(fragment)
 end
 
 function sttpkg.listening()
-  return sttpkg.bridgeAvailable() and stt.isListening()
+  return sttpkg.bridgeAvailable() and stt.listening()
 end
 
 function sttpkg.enable()
@@ -204,7 +204,7 @@ function sttpkg.enable()
 end
 
 function sttpkg.disable()
-  if sttpkg.bridgeAvailable() and stt.isListening() then
+  if sttpkg.bridgeAvailable() and stt.listening() then
     stt.stop()
     cecho("<light_slate_gray>[STT] stopped\n")
   end

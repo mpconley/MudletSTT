@@ -50,7 +50,7 @@ elseif sub == "lowercase" and onOff(rest) ~= nil then
 elseif sub == "timeout" and tonumber(rest) then
   sttpkg.config.silenceTimeout = math.max(0, math.floor(tonumber(rest)))
   sttpkg.saveConfig()
-  if sttpkg.bridgeAvailable() and stt.isInitialized() then
+  if sttpkg.bridgeAvailable() and stt.initialized() then
     stt.setSilenceTimeout(sttpkg.config.silenceTimeout)
   end
   cecho("<light_slate_gray>[STT] silence timeout " .. sttpkg.config.silenceTimeout .. "ms\n")
