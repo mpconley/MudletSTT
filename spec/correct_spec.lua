@@ -145,4 +145,39 @@ describe("sttpkg.correct", function()
       assert.equals(0, count)
     end)
   end)
+
+  describe("apostrophes", function()
+    -- No decoder tried here emits them: "Tamarindo's hook" comes back as
+    -- "tamarindos hook" every time, in every model
+    local possessives = correct.lexicon({
+      { word = "tamarindo's" }, { word = "captain's" }, { word = "hook" },
+    })
+
+    -- These two are long enough for the distance budget to reach on its own;
+    -- they are here because they are the words a real session lost, and they
+    -- must keep working however the matching is reorganised
+    it("puts back an apostrophe the engine could not say", function()
+      assert.are.equal("tamarindo's", correct.token("tamarindos", possessives))
+      assert.are.equal("captain's", correct.token("captains", possessives))
+    end)
+
+    it("leaves a word that is already right alone", function()
+      assert.is_nil(correct.token("hook", possessives))
+      assert.is_nil(correct.token("tamarindo's", possessives))
+    end)
+
+    it("does not invent an apostrophe for a word the vocabulary spells plainly", function()
+      local plain = correct.lexicon({ { word = "its" }, { word = "hook" } })
+      assert.is_nil(correct.token("its", plain))
+    end)
+
+    -- The edit-distance budget is zero at three characters and one up to six,
+    -- so the fuzzy matcher cannot reach these however obvious they look. The
+    -- bare form is the only thing that can.
+    it("reaches short words the distance budget cannot", function()
+      local short = correct.lexicon({ { word = "it's" }, { word = "we're" } })
+      assert.are.equal("it's", correct.token("its", short))
+      assert.are.equal("we're", correct.token("were", short))
+    end)
+  end)
 end)

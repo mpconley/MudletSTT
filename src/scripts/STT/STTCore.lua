@@ -230,7 +230,27 @@ local function lexicons()
     sttpkg._lex.leading = sttpkg.correct.lexicon(mcvp.entries({ correctable = true, leading = true }))
     sttpkg._lex.argument = sttpkg.correct.lexicon(mcvp.entries({ correctable = true, leading = false }))
   end
-  return sttpkg._lex.leading, sttpkg._lex.argument
+
+  -- The catalog carries commands, socials, channels and directions - never
+  -- the things standing in front of you, deliberately. So a noun in this room
+  -- or your pack could never be corrected: "get wor" had no way back to
+  -- "worn", because "worn" is only ever an in-reach word. Those words are
+  -- argument-position by nature, so they join the argument lexicon.
+  --
+  -- Rebuilt per call rather than cached: what is in reach changes with every
+  -- room, and it is a couple of dozen words against a catalog of hundreds.
+  local argument = sttpkg._lex.argument
+  if sttpkg.context and sttpkg.context.inScope then
+    local inReach = sttpkg.context.inScope()
+    if #inReach > 0 then
+      local entries = {}
+      for _, word in ipairs(inReach) do entries[#entries + 1] = { word = word } end
+      for _, word in ipairs(argument.list) do entries[#entries + 1] = { word = word } end
+      argument = sttpkg.correct.lexicon(entries)
+    end
+  end
+
+  return sttpkg._lex.leading, argument
 end
 
 --- How many words correction actually has to work with, or nil when no

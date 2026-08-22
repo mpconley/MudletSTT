@@ -52,13 +52,27 @@ end
 --- Build a lookup from vocabulary entries (mcvp.entries() shape: each has a
 -- .word; anything else on the entry is ignored here). Later duplicates of a
 -- word are dropped so the first entry wins.
+--- A word with its apostrophes taken out. Engines do not emit them: every
+-- decoder tried here returns "tamarindos" for "Tamarindo's" and "captains"
+-- for "captain's", every time. Matching on this form lets the apostrophe be
+-- put back rather than counted as a word the vocabulary does not have.
+function correct.deapostrophe(word)
+  return (word:gsub("'", ""))
+end
+
 function correct.lexicon(entries)
-  local lex = { exact = {}, list = {} }
+  local lex = { exact = {}, list = {}, bare = {} }
   for _, entry in ipairs(entries or {}) do
     local word = tostring(entry.word or ""):lower()
     if word ~= "" and not lex.exact[word] then
       lex.exact[word] = entry
       lex.list[#lex.list + 1] = word
+      -- Only the first spelling claims a bare form, so "its" cannot be
+      -- rewritten to "it's" by a later entry
+      local bare = correct.deapostrophe(word)
+      if bare ~= word and not lex.bare[bare] then
+        lex.bare[bare] = word
+      end
     end
   end
   table.sort(lex.list)
@@ -72,6 +86,9 @@ end
 function correct.token(token, lex)
   local lower = token:lower()
   if lex.exact[lower] then return nil end
+  -- The whole word is right and only the apostrophe is missing, which is not
+  -- a recognition error to be scored against a budget
+  if lex.bare and lex.bare[lower] then return lex.bare[lower] end
   local budget = correct.maxDistance(#lower)
   if budget == 0 then return nil end
   local best, bestDist, tied = nil, budget + 1, false
