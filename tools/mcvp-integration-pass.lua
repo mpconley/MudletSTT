@@ -106,6 +106,12 @@ function _pass.check()
       cecho(string.format("       capabilities: words=%s vocabulary=%s onDevice=%s\n",
             tostring(info.words), tostring(info.vocabulary), tostring(info.onDevice)))
     end
+    -- The comparison is only meaningful on a model that can take words
+    if info.vocabulary == false then
+      no("this model can be biased", "biasing has no effect - stt model zipformer switches to one that can")
+    elseif info.vocabulary then
+      ok("this model can be biased")
+    end
   end
 
   -- 5. The join: applyVocabulary() is where in-reach words and the catalog
@@ -192,6 +198,24 @@ function _pass.compare(passes)
     local biasing = order[step]
     sttpkg.config.biasing = biasing
     local applied = sttpkg.applyVocabulary()
+
+    -- A biased run that applied nothing is the same condition as the plain
+    -- one, so the comparison would be two identical runs and any difference
+    -- between them is chance. Not worth sixteen spoken phrases to find out.
+    if biasing and applied == 0 then
+      cecho("<red>\nThe engine took no biasing words, so there is nothing to compare.\n")
+      local info = stt.getInfo()
+      if info and info.vocabulary == false then
+        cecho("<orange>This model cannot take a vocabulary at all. The streaming Zipformer\n")
+        cecho("<orange>can: switch with  stt model zipformer  and run this again.\n")
+      else
+        cecho("<orange>Check that a catalog has arrived and that words are in reach - _pass.check().\n")
+      end
+      sttpkg.config.biasing = restore
+      sttpkg.applyVocabulary()
+      return
+    end
+
     cecho(string.format("\n<white>Run %d of 2: biasing %s (%d words applied)\n",
                         step, biasing and "ON" or "OFF", applied))
 
