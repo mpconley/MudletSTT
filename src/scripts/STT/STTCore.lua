@@ -15,11 +15,17 @@ sttpkg.config = sttpkg.config or {
   correction = true,    -- apply MCVP vocabulary correction to finals
   lowercase = true,     -- lowercase the first character, the way commands are typed
   silenceTimeout = 0,   -- ms of silence before listening self-stops; 0 = open-ended
-  -- Off until it earns its place: measured against a 300-word game vocabulary
-  -- it cost more than it gave, taking exact matches from 83% to 73%. Boosting
-  -- a vocabulary helps only for words that are in it, and a game publishing
-  -- command aliases but not item nouns offers plenty to boost wrongly and
-  -- little to boost rightly. "stt bias on" to measure it on another game.
+  -- Path of the model "stt model" last loaded, so a restart does not drop
+  -- back to whichever one sorts first. They are not interchangeable: only
+  -- some can be biased at all, so the choice is worth keeping.
+  model = "",
+  -- Off, but the measurement that put it here is void. It ran while
+  -- SherpaRecognizer left hotwords_score at zero, so the words were compiled
+  -- into the decoder and boosted by nothing: that run compared inert biasing
+  -- against no biasing and could only ever have found them equal or worse.
+  -- Re-measure with "stt bias on" and tools/mcvp-integration-pass.lua before
+  -- trusting any figure about biasing, including the 83%-to-73% this comment
+  -- used to cite.
   biasing = false,
   -- Measured, not assumed: "short" was the obvious choice for commands and
   -- lost to "default" on every number "stt test" reports - a one-word command
@@ -55,7 +61,34 @@ end
 --- Path of the best installed model: sherpa-onnx engines first for their
 -- accuracy and hands-free endpointing, then Vosk, then whatever a
 -- single-engine core reports.
+--- Every installed model, whichever engine provides it.
+local function installedModels()
+  local all = {}
+  for _, engine in ipairs({ "sherpa", "vosk" }) do
+    local ok, models = pcall(stt.listModels, engine)
+    if ok and models then
+      for _, model in ipairs(models) do all[#all + 1] = model end
+    end
+  end
+  if #all == 0 then
+    -- Cores predating the engine argument reject it; ask plainly
+    local ok, models = pcall(stt.listModels)
+    if ok and models then all = models end
+  end
+  return all
+end
+
 function sttpkg.findModel()
+  -- A model chosen with "stt model" outlives the session that chose it. If it
+  -- has since been removed, the preference order below takes over rather than
+  -- leaving speech with nothing to load.
+  local remembered = sttpkg.config.model
+  if remembered and remembered ~= "" then
+    for _, model in ipairs(installedModels()) do
+      if model.path == remembered then return model.path end
+    end
+  end
+
   local ok, models = pcall(stt.listModels, "sherpa")
   if ok and models and models[1] then return models[1].path end
   ok, models = pcall(stt.listModels, "vosk")
@@ -177,6 +210,8 @@ function sttpkg.useModel(fragment)
           -- the vocabulary: the model just loaded may accept what the last
           -- one refused
           sttpkg.applyVocabulary()
+          sttpkg.config.model = model.path
+          sttpkg.saveConfig()
           if wasListening then stt.start() end
           return model.name
         end
