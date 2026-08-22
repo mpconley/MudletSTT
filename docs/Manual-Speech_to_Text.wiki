@@ -1,0 +1,168 @@
+{{TOC right}}
+{{#description2:Speak commands to your game - setting up and using Mudlet's speech to text}}
+__NOINDEX__
+<div style="border:2px solid #ac6600; background:#fef6e7; padding:10px 16px; margin-bottom:1em;">'''DRAFT''' &mdash; this page documents functionality from Mudlet pull requests [https://github.com/Mudlet/Mudlet/pull/9982 #9982] and [https://github.com/Mudlet/Mudlet/pull/9983 #9983], which have not yet been released. Names, version numbers and bracketed placeholders below will be filled in when they merge. Remove this banner and <code>&#95;&#95;NOINDEX&#95;&#95;</code> on release.</div>
+
+Mudlet can turn your speech into game commands: press a microphone button, say ''get torch'', and the words land on your command line, ready to send.  Recognition runs entirely on your own computer, and nothing is switched on until you set it up.  Speech to text was built for accessibility first &mdash; playing when typing is difficult &mdash; but it is there for anyone who would rather talk than type.
+
+= What is Speech to Text? =
+
+Speech recognition in Mudlet is made of three parts, each installed separately, so your client carries nothing extra until you ask for it:
+
+* '''A speech engine''' &mdash; the library that decodes audio.  The first supported engine is [https://alphacephei.com/vosk Vosk]; the engine interface is pluggable, and further engines are planned.
+* '''A language model''' &mdash; the data files for your spoken language.  Models are per-engine and install into Mudlet's own folders.
+* '''The MudletSTT package''' &mdash; the player-facing controls: the microphone button, the <code>stt</code> alias, and the settings below.  Without it the feature is available to scripts only.
+
+= Privacy =
+
+* Recognition is '''on-device''': no audio and no transcripts are sent to any online service, ever.
+* Your operating system will ask once for '''microphone permission'''.  On macOS this is the standard system prompt; you can change your answer later in System Settings &rarr; Privacy &amp; Security &rarr; Microphone.
+* The microphone is only open while Mudlet is listening &mdash; the microphone button '''pulses''' the whole time it is live, so there is never a hidden hot mic.
+
+= Setting it up =
+
+== 1. Install the package ==
+
+Install '''[PLACEHOLDER: package-name once on the repository]''' with [[Manual:Mudlet_Packages#via_MPKG|mpkg]]:
+
+<code>mpkg install [package-name]</code>
+
+{{note}} Until the package is published to the Mudlet Package Repository, install it by URL instead: <code>lua installPackage("[PLACEHOLDER: package URL]")</code>
+
+== 2. Install an engine and a model ==
+
+Engine packs that install the library and a model for you are '''[PLACEHOLDER: engine pack - planned]'''.  To install by hand: place the engine library in the folder <code>stt.getLibraryPath()</code> names, and unpack models into <code>stt.getModelPath()</code>.  Run <code>lua stt.getPlatformKey()</code> to see which build your machine needs (<code>macos</code>, <code>windows-x64</code>, <code>windows-x86</code>, <code>linux-x86_64</code> or <code>linux-aarch64</code>).
+
+== 3. Check ==
+
+<code>stt status</code>
+
+This reports the engine, the loaded model, and every setting.  <code>stt models</code> lists the models Mudlet found.
+
+[PLACEHOLDER: screenshot - stt status output with an engine and model loaded]
+
+= Using it =
+
+Toggle listening any of three ways &mdash; they are all the same control:
+
+* type <code>stt</code> (or <code>stt on</code> / <code>stt off</code>),
+* click the '''Speech''' microphone button on the main toolbar,
+* or use '''Options &rarr; Extensions &rarr; Speech''' in the menu &mdash; on macOS that is the menu bar at the top of the screen.  The menu entry is always reachable even when the toolbar is hidden.
+
+Then speak.  While you talk, the words appear live in your command line; when you pause, the finished phrase replaces them, ready to send with Enter.  If you would rather Mudlet sends each phrase straight to the game, turn on <code>stt autosend on</code>.
+
+ you say:            get torch
+ command line:       get torch          &larr; press Enter to send
+
+{{note}} The microphone button needs Mudlet '''[PLACEHOLDER: version]''' or later.  On older versions the <code>stt</code> alias does everything the button does.
+
+= Settings =
+
+All settings are saved per profile and survive restarts.
+
+{| class="wikitable"
+! Command !! What it does
+|-
+| <code>stt autosend on&#124;off</code> || Send finished phrases to the game instead of the command line.
+|-
+| <code>stt preview on&#124;off</code> || Show words live in the command line while you speak.
+|-
+| <code>stt correct on&#124;off</code> || Correct finished phrases against the game's vocabulary (needs [[Standards:MUD Client Vocabulary Protocol|MCVP]], below).  On by default.
+|-
+| <code>stt lowercase on&#124;off</code> || Lowercase the first letter, the way commands are typed.
+|-
+| <code>stt sensitivity short&#124;default&#124;long</code> || How soon a phrase counts as finished: <code>short</code> for quick commands, <code>long</code> for dictation.
+|-
+| <code>stt timeout &lt;ms&gt;</code> || Stop listening after this much silence; <code>0</code> keeps listening open-ended.
+|-
+| <code>stt bias on&#124;off</code> || Bias the decoder toward the game's vocabulary.  Off by default; needs a model that supports it &mdash; measure the difference with <code>stt test</code>.
+|-
+| <code>stt model &lt;name&gt;</code> || Load a different installed model.  Your choice is remembered.
+|-
+| <code>stt models</code> || List installed speech models.
+|-
+| <code>stt status</code> || Engine, state and settings at a glance.
+|}
+
+= Hearing your game's words =
+
+Speech engines know everyday English; they do not know your game's verbs, socials and monster names.  Two things close that gap:
+
+* '''Correction''': finished phrases are corrected against the vocabulary your game publishes, so a near-miss becomes the word the game actually accepts.  This needs the [PLACEHOLDER: link - MudletMCVP package] package, and a game that supports the [[Standards:MUD Client Vocabulary Protocol|MUD Client Vocabulary Protocol]].
+* '''What is in reach''': the names of things in your room and inventory join in automatically on supporting games, so ''get talisman'' works on the talisman actually in front of you.
+
+On games without vocabulary support, speech to text still works &mdash; you simply get the engine's plain recognition.
+
+= Checking how well it hears you =
+
+ stt test        &larr; speak set phrases; nothing is sent to the game
+ stt test scope  &larr; phrases built from what is in this room and your inventory
+
+Each run scores what was heard against what was asked &mdash; exact matches, word errors, and which phrases failed &mdash; so you can compare models, sensitivities and biasing on numbers rather than impressions.
+
+= Troubleshooting =
+
+{| class="wikitable"
+! Symptom !! Likely cause
+|-
+| No microphone button || MudletSTT not installed, or Mudlet older than '''[PLACEHOLDER: version]'''.  The <code>stt</code> alias works regardless.
+|-
+| ''"This Mudlet build has no speech-to-text support"'' || Your Mudlet predates the speech API &mdash; update Mudlet.
+|-
+| ''"The speech engine library is not installed, looked in: &hellip;"'' || The engine is missing; the message lists the exact folders searched.
+|-
+| ''"No speech model installed"'' || The engine is there but no model is &mdash; unpack one into <code>stt.getModelPath()</code>.
+|-
+| Microphone permission denied || Grant it in your system's privacy settings, then start listening again.
+|-
+| Listening, but nothing is heard || Check the input level in <code>stt status</code> &mdash; near zero means the wrong input device or a muted microphone.
+|-
+| <code>stt bias on</code> has no effect || The loaded model cannot be biased; switch with <code>stt model</code>.
+|}
+
+= For scripters =
+
+Everything above is built on the <code>stt.*</code> Lua API, which any script or package can use directly.  Return values follow one convention: <code>true</code> means done, <code>false</code> is a refusal you can act on, and <code>nil</code> plus a message is a fault.  The full contract &mdash; written so other clients can implement the same surface &mdash; is at '''[PLACEHOLDER: link - stt API contract]'''.
+
+{| class="wikitable"
+! Group !! Functions
+|-
+| Lifecycle || <code>stt.init([modelPath])</code>, <code>stt.start()</code>, <code>stt.stop()</code>, <code>stt.toggle()</code>, <code>stt.close()</code>
+|-
+| Queries || <code>stt.available()</code>, <code>stt.initialized()</code>, <code>stt.listening()</code>, <code>stt.getInfo()</code>
+|-
+| Tuning || <code>stt.setSilenceTimeout(ms)</code>, <code>stt.setSensitivity(mode)</code>, <code>stt.setVocabulary(words)</code>
+|-
+| Installation || <code>stt.getModelPath()</code>, <code>stt.getLibraryPath()</code>, <code>stt.listModels()</code>, <code>stt.getPlatformKey()</code>, <code>stt.reloadLibrary()</code>, <code>stt.unloadLibrary()</code>
+|}
+
+{| class="wikitable"
+! Event !! Carries !! When
+|-
+| <code>sysSTTResult</code> || text || A phrase was finished.
+|-
+| <code>sysSTTPartialResult</code> || text || Words recognised so far, while speaking.
+|-
+| <code>sysSTTWords</code> || JSON || Per-word timing and confidence, alongside each result, on engines that can supply it.
+|-
+| <code>sysSTTStateChanged</code> || state || <code>uninitialized</code>, <code>ready</code>, <code>starting</code>, <code>listening</code>, <code>processing</code> or <code>error</code>.
+|-
+| <code>sysSTTError</code> || message || Something went wrong, in words a player can act on.
+|}
+
+<syntaxhighlight lang="lua">
+registerAnonymousEventHandler("sysSTTResult", function(_, text)
+  echo("Heard: " .. text .. "\n")
+end)
+
+local ok, err = stt.init()   -- the default installed model
+if ok then stt.start() else echo(err .. "\n") end
+</syntaxhighlight>
+
+= See also =
+
+* [[Manual:Mudlet Packages]] &mdash; installing packages, mpkg, and the Package Repository
+* [[Standards:MUD Client Vocabulary Protocol]] &mdash; how games publish their vocabulary
+* '''[PLACEHOLDER: link - MudletSTT package page]'''
+
+[[Category:Mudlet Manual]]
