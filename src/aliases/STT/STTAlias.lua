@@ -30,7 +30,9 @@ elseif sub == "status" then
     sttpkg.config.correction and "on" or "off",
     sttpkg.config.lowercase and "on" or "off",
     sttpkg.config.silenceTimeout or 0))
-  cecho("<light_slate_gray>[STT] sensitivity " .. tostring(sttpkg.config.sensitivity) .. "\n")
+  cecho(string.format("<light_slate_gray>[STT] sensitivity %s, focus %s\n",
+    tostring(sttpkg.config.sensitivity),
+    sttpkg.config.stopOnFocusLoss and "stop" or "keep"))
 elseif sub == "autosend" and onOff(rest) ~= nil then
   sttpkg.config.autosend = onOff(rest)
   sttpkg.saveConfig()
@@ -61,6 +63,14 @@ elseif sub == "sensitivity" and (rest == "short" or rest == "default" or rest ==
     cecho("<light_slate_gray>[STT] sensitivity " .. rest .. "\n")
   else
     cecho("<orange>[STT] this Mudlet build cannot change sensitivity\n")
+  end
+elseif sub == "focus" and (rest == "stop" or rest == "keep") then
+  sttpkg.config.stopOnFocusLoss = (rest == "stop")
+  sttpkg.saveConfig()
+  if rest == "stop" then
+    cecho("<light_slate_gray>[STT] listening stops when Mudlet is not the active window\n")
+  else
+    cecho("<light_slate_gray>[STT] listening continues while other windows are in front\n")
   end
 elseif sub == "test" then
   if rest == "stop" then
@@ -121,6 +131,7 @@ else
   stt lowercase on|off   lowercase the first letter, the way commands are typed
   stt sensitivity short|default|long   how soon a phrase counts as finished
   stt timeout <ms>       stop after this much silence; 0 keeps listening
+  stt focus stop|keep    whether to stop listening when Mudlet loses focus
   stt test [n]     score recognition against set phrases, n passes (stt test stop)
   stt test scope [n]   score phrases naming what is in this room and inventory
   stt model <name> load a different installed model, to compare them

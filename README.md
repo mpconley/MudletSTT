@@ -61,6 +61,7 @@ stt correct on|off     correct finals against the game vocabulary (MCVP)
 stt lowercase on|off   lowercase the first letter, the way commands are typed
 stt sensitivity short|default|long   how soon a phrase counts as finished
 stt timeout <ms>       stop after this much silence; 0 keeps listening
+stt focus stop|keep    whether to stop listening when Mudlet loses focus
 stt test [n]     score recognition against set phrases, n passes (stt test stop)
 stt model <name> load a different installed model, to compare them
 stt models       list installed speech models

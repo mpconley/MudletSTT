@@ -34,6 +34,9 @@ files["tools"] = {
   read_globals = {"mcvp", "stt", "tempTimer"},
 }
 
+-- sttpkg is writable here: a spec that exercises one part of the package
+-- stands the rest of it up as stubs
 files["spec"] = {
-  read_globals = { "describe", "it", "before_each", "after_each", "assert", "sttpkg" },
+  globals = { "sttpkg" },
+  read_globals = { "describe", "it", "before_each", "after_each", "assert" },
 }

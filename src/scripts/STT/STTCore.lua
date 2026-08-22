@@ -33,6 +33,15 @@ sttpkg.config = sttpkg.config or {
   -- more than a slow one, so accuracy wins the default and "short" stays
   -- available for anyone who prefers the speed.
   sensitivity = "default",
+  -- Stop listening when Mudlet itself stops being the active application.
+  -- Unlike the profile-focus rule below this one is a preference, not a
+  -- correctness fix: speech said while another window is in front is not
+  -- addressed to the wrong game, it is only possibly not addressed to a game
+  -- at all. Dictating while reading a map or a wiki page in a browser is a
+  -- real way to use this, so "stt focus keep" turns it off - it defaults on
+  -- because a microphone left open to a room nobody is playing in is the
+  -- more expensive mistake.
+  stopOnFocusLoss = true,
 }
 
 local CONFIG_FILE = "stt-package-config.lua"
@@ -432,6 +441,13 @@ function sttpkg.setup()
       if focused or not sttpkg.listening() then return end
       sttpkg.disable()
       cecho("<orange>[STT] Stopped listening - this profile is no longer in front.\n")
+    end),
+    -- Every profile hears this one, so each stops its own microphone; a
+    -- Mudlet without the event simply never fires it and nothing changes.
+    appFocus = registerAnonymousEventHandler("sysApplicationFocusChangeEvent", function(_, active)
+      if active or not sttpkg.config.stopOnFocusLoss or not sttpkg.listening() then return end
+      sttpkg.disable()
+      cecho("<orange>[STT] Stopped listening - Mudlet is not the active window.\n")
     end),
   }
   sttpkg.loadConfig()

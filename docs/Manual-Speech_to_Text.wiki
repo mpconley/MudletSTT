@@ -21,7 +21,8 @@ Speech recognition in Mudlet is made of three parts, each installed separately, 
 * Your operating system will ask once for '''microphone permission'''.  On macOS this is the standard system prompt; you can change your answer later in System Settings &rarr; Privacy &amp; Security &rarr; Microphone.
 * The microphone is only open while Mudlet is listening, and the microphone button '''pulses''' the whole time it is live.
 * Listening '''stops on its own''' when you switch to another game's tab, so speech meant for one game can never reach another.  You start it again deliberately.
-* Your operating system shows its own recording indicator while the microphone is open &mdash; an orange dot in the macOS menu bar, a microphone icon in the Windows taskbar.  If you leave Mudlet for another application, that indicator is what tells you the microphone is still live; <code>stt timeout 30000</code> will also stop listening after thirty seconds of silence.
+* Listening also '''stops when you leave Mudlet''' for another application, so a microphone is not left open to a conversation that has stopped being a game session.  If you would rather dictate while reading something in another window, <code>stt focus keep</code> turns that off.
+* Your operating system shows its own recording indicator while the microphone is open &mdash; an orange dot in the macOS menu bar, a microphone icon in the Windows taskbar.  <code>stt timeout 30000</code> will also stop listening after thirty seconds of silence.
 
 = Setting it up =
 
@@ -78,6 +79,8 @@ All settings are saved per profile and survive restarts.
 | <code>stt sensitivity short&#124;default&#124;long</code> || How soon a phrase counts as finished: <code>short</code> for quick commands, <code>long</code> for dictation.
 |-
 | <code>stt timeout &lt;ms&gt;</code> || Stop listening after this much silence; <code>0</code> keeps listening open-ended.
+|-
+| <code>stt focus stop&#124;keep</code> || Whether leaving Mudlet for another application stops listening.  <code>stop</code> by default.
 |-
 | <code>stt bias on&#124;off</code> || Bias the decoder toward the game's vocabulary.  Off by default; needs a model that supports it &mdash; measure the difference with <code>stt test</code>.
 |-
