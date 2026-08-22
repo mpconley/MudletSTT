@@ -123,7 +123,7 @@ function _pass.check()
       ok("biasing applied", applied .. " words taken by the engine")
       note("in-reach words go in first, then the catalog fills what is left")
     elseif not sttpkg.config or not sttpkg.config.biasing then
-      note("biasing is switched off in this profile - stt biasing on")
+      note("biasing is switched off in this profile - turn it on with: stt bias on")
     else
       no("biasing applied", "nothing was taken; with a catalog present that is the join failing")
     end
