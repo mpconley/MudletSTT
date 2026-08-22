@@ -1,7 +1,9 @@
 {{TOC right}}
 {{#description2:Speak commands to your game - setting up and using Mudlet's speech to text}}
 __NOINDEX__
-<div style="border:2px solid #ac6600; background:#fef6e7; padding:10px 16px; margin-bottom:1em;">'''DRAFT''' &mdash; this page documents functionality from Mudlet pull requests [https://github.com/Mudlet/Mudlet/pull/9982 #9982] and [https://github.com/Mudlet/Mudlet/pull/9983 #9983], which have not yet been released. Names, version numbers and bracketed placeholders below will be filled in when they merge. Remove this banner and <code>&#95;&#95;NOINDEX&#95;&#95;</code> on release.</div>
+<div style="border:2px solid #a00; background:#fff3f3; color:#a00; padding:0.5em 1em; margin:1em 0; text-align:center; font-weight:bold;">
+DRAFT — This page documents functionality from Mudlet pull requests [https://github.com/Mudlet/Mudlet/pull/9982 #9982] and [https://github.com/Mudlet/Mudlet/pull/9983 #9983], which are not yet released and subject to change. Do not follow this text until release.
+</div>
 
 Mudlet can turn your speech into game commands: press a microphone button, say ''get torch'', and the words land on your command line, ready to send.  Recognition runs entirely on your own computer, and nothing is switched on until you set it up.  Speech to text was built for accessibility first &mdash; playing when typing is difficult &mdash; but it is there for anyone who would rather talk than type.
 
