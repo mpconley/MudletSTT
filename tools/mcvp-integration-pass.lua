@@ -118,6 +118,10 @@ function _pass.check()
   -- meet, and it reports how many the engine actually took. Zero with a
   -- catalog present means the two halves are not meeting.
   if hasStt and type(sttpkg.applyVocabulary) == "function" then
+    if sttpkg.listening() then
+      note("listening now, so the vocabulary cannot be rebuilt into the decoder -")
+      note("stop with  stt off  before judging the number below")
+    end
     local applied = sttpkg.applyVocabulary()
     if applied > 0 then
       ok("biasing applied", applied .. " words taken by the engine")
@@ -197,6 +201,12 @@ function _pass.compare(passes)
     end
     local biasing = order[step]
     sttpkg.config.biasing = biasing
+
+    -- The decoder is rebuilt to compile hotwords in, which the engine refuses
+    -- to do mid-phrase - setVocabulary() returns Failed while listening. So
+    -- the microphone is closed first; test.start() opens it again, and by then
+    -- the words are built in.
+    if sttpkg.listening() then sttpkg.disable() end
     local applied = sttpkg.applyVocabulary()
 
     -- A biased run that applied nothing is the same condition as the plain
