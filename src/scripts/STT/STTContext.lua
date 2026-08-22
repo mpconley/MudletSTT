@@ -100,7 +100,10 @@ end
 
 function context.teardown()
   if type(mcvp) == "table" and type(mcvp.context) == "table" then
-    mcvp.context.unregister()
+    -- Only our own adapter: uninstalling this package tears down after the
+    -- replacement copy has already registered, and a bare unregister would
+    -- leave the new one bound to nothing
+    mcvp.context.unregister(context.adapter)
   end
 end
 
