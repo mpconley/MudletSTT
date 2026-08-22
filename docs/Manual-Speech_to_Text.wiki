@@ -19,7 +19,9 @@ Speech recognition in Mudlet is made of three parts, each installed separately, 
 
 * Recognition is '''on-device''': no audio and no transcripts are sent to any online service, ever.
 * Your operating system will ask once for '''microphone permission'''.  On macOS this is the standard system prompt; you can change your answer later in System Settings &rarr; Privacy &amp; Security &rarr; Microphone.
-* The microphone is only open while Mudlet is listening &mdash; the microphone button '''pulses''' the whole time it is live, so there is never a hidden hot mic.
+* The microphone is only open while Mudlet is listening, and the microphone button '''pulses''' the whole time it is live.
+* Listening '''stops on its own''' when you switch to another game's tab, so speech meant for one game can never reach another.  You start it again deliberately.
+* Your operating system shows its own recording indicator while the microphone is open &mdash; an orange dot in the macOS menu bar, a microphone icon in the Windows taskbar.  If you leave Mudlet for another application, that indicator is what tells you the microphone is still live; <code>stt timeout 30000</code> will also stop listening after thirty seconds of silence.
 
 = Setting it up =
 

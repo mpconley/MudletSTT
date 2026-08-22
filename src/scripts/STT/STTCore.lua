@@ -423,6 +423,16 @@ function sttpkg.setup()
     uninstall = registerAnonymousEventHandler("sysUninstall", function(_, name)
       if name == PACKAGE_NAME then sttpkg.teardown() end
     end),
+    -- Speech belongs to the profile that was in front when it was spoken.
+    -- Tabbing to another game leaves this profile's handlers holding the
+    -- microphone, so a phrase said to the new game is routed by the old one -
+    -- and with autosend on, sent to it. Not a setting: a command reaching the
+    -- wrong game is wrong, not a preference.
+    focus = registerAnonymousEventHandler("sysProfileFocusChangeEvent", function(_, focused)
+      if focused or not sttpkg.listening() then return end
+      sttpkg.disable()
+      cecho("<orange>[STT] Stopped listening - this profile is no longer in front.\n")
+    end),
   }
   sttpkg.loadConfig()
 end
