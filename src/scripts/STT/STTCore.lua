@@ -147,6 +147,40 @@ local MAX_BIAS_WORDS = 300
 -- meaning and the most weight, so they are left out of biasing entirely.
 local MIN_BIAS_WORD_LENGTH = 3
 
+--- The words that would be biased toward right now, in the order they are
+-- spent. Separate from applyVocabulary() so the choice can be tested, and so
+-- tools/bench can write out the exact list a live profile would have used
+-- rather than a reimplementation of it that drifts.
+-- @param limit optional budget override, for measuring what the cap costs
+function sttpkg.biasWords(limit)
+  limit = limit or MAX_BIAS_WORDS
+  local words, seen = {}, {}
+  local function offer(word)
+    word = tostring(word or ""):lower()
+    if #word >= MIN_BIAS_WORD_LENGTH and not seen[word] and #words < limit then
+      seen[word] = true
+      words[#words + 1] = word
+    end
+  end
+
+  -- What is in reach goes in first. The budget is small and these are the
+  -- words about to be spoken, whereas most of the catalog is commands the
+  -- recogniser already gets right; spending the budget the other way round is
+  -- what made biasing measure worse than not biasing at all.
+  if sttpkg.context and sttpkg.context.inScope then
+    for _, word in ipairs(sttpkg.context.inScope()) do
+      offer(word)
+    end
+  end
+
+  if mcvp and mcvp.entries then
+    for _, entry in ipairs(mcvp.entries({ biasable = true })) do
+      offer(entry.word)
+    end
+  end
+  return words
+end
+
 --- Push the game's vocabulary into the decoder, where a backend can bias
 -- recognition toward it. Returns the number of words applied, 0 when the
 -- backend declined - which is not a failure but the signal to keep relying on
@@ -164,28 +198,7 @@ function sttpkg.applyVocabulary()
     return 0
   end
 
-  local words, seen = {}, {}
-  local function offer(word)
-    word = tostring(word or ""):lower()
-    if #word >= MIN_BIAS_WORD_LENGTH and not seen[word] and #words < MAX_BIAS_WORDS then
-      seen[word] = true
-      words[#words + 1] = word
-    end
-  end
-
-  -- What is in reach goes in first. The budget is small and these are the
-  -- words about to be spoken, whereas most of the catalog is commands the
-  -- recogniser already gets right; spending the budget the other way round is
-  -- what made biasing measure worse than not biasing at all.
-  if sttpkg.context and sttpkg.context.inScope then
-    for _, word in ipairs(sttpkg.context.inScope()) do
-      offer(word)
-    end
-  end
-
-  for _, entry in ipairs(mcvp.entries({ biasable = true })) do
-    offer(entry.word)
-  end
+  local words = sttpkg.biasWords()
   if #words == 0 then return 0 end
 
   sttpkg._biasWords = stt.setVocabulary(words) and #words or 0
