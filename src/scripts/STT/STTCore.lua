@@ -19,14 +19,17 @@ sttpkg.config = sttpkg.config or {
   -- back to whichever one sorts first. They are not interchangeable: only
   -- some can be biased at all, so the choice is worth keeping.
   model = "",
-  -- Off, but the measurement that put it here is void. It ran while
-  -- SherpaRecognizer left hotwords_score at zero, so the words were compiled
-  -- into the decoder and boosted by nothing: that run compared inert biasing
-  -- against no biasing and could only ever have found them equal or worse.
-  -- Re-measure with "stt bias on" and tools/mcvp-integration-pass.lua before
-  -- trusting any figure about biasing, including the 83%-to-73% this comment
-  -- used to cite.
-  biasing = false,
+  -- On, measured 2026-08-23 with tools/mcvp-integration-pass.lua: 24 paired
+  -- phrases per condition on a streaming Zipformer, 79% exact biased against
+  -- 63% plain, first-word losses 2 against 5. What carries this is the
+  -- per-phrase breakdown rather than the percentage - "symbol" came back as
+  -- the non-word "simbal" on every plain attempt and on none of the biased
+  -- ones, and client-side correction cannot rescue that either, distance 2 on
+  -- six letters being outside its budget. It is not free: two phrases got
+  -- worse under biasing, which is what "stt bias off" is for. Twenty-four
+  -- trials carry the direction and no more, so do not quote the 16 points as
+  -- a settled figure.
+  biasing = true,
   -- Measured, not assumed: "short" was the obvious choice for commands and
   -- lost to "default" on every number "stt test" reports - a one-word command
   -- can be cut off before the decoder has emitted it. A wrong command costs

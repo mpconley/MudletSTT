@@ -82,7 +82,7 @@ All settings are saved per profile and survive restarts.
 |-
 | <code>stt focus stop&#124;keep</code> || Whether leaving Mudlet for another application stops listening.  <code>stop</code> by default.
 |-
-| <code>stt bias on&#124;off</code> || Bias the decoder toward the game's vocabulary.  Off by default; needs a model that supports it &mdash; measure the difference with <code>stt test</code>.
+| <code>stt bias on&#124;off</code> || Bias the decoder toward the game's vocabulary.  On by default; needs a model that supports it.  It helps most with words the recogniser turns into non-words, and it is not free &mdash; turn it off if it hurts yours, and measure with <code>stt test</code>.
 |-
 | <code>stt model &lt;name&gt;</code> || Load a different installed model.  Your choice is remembered.
 |-
