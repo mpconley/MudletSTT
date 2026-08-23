@@ -20,11 +20,15 @@ Anything that produces mono 16-bit 16kHz WAV. With ffmpeg on macOS:
 
     ffmpeg -f avfoundation -i ":default" -ac 1 -ar 16000 -sample_fmt s16 phrases.wav
 
-Say each phrase with **at least 1.5 seconds of silence between them**, and leave
-two seconds at the end. The default endpointer needs 1.2s of trailing silence to
-call an utterance finished, so shorter gaps run phrases together and every
-configuration then scores against misaligned references. Leave a moment of
-silence at the start too - the first phrase is the one most often clipped.
+Say each phrase with **a clear pause between them** - a second is plenty - and
+leave silence at both ends. The recording is cut into one segment per phrase
+before any model sees it, at the longest pauses, so what matters is that the
+gaps between phrases are longer than the gaps inside them.
+
+Cutting first is not a convenience. Left to segment the audio themselves, two
+models endpoint differently, merge different pairs of phrases, and every
+reference after a merge scores against the wrong utterance - so the comparison
+stops being like for like exactly where it gets interesting.
 
 Write the phrases in spoken order to a references file, one per line.
 

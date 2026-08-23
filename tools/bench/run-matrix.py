@@ -9,7 +9,8 @@ thing as a number from "stt test" in a live profile.
 import argparse, itertools, os, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from sherpa_bench import decode, load_library, model_files, read_wav, SENSITIVITY
+from sherpa_bench import (decode, load_library, model_files, read_wav,
+                          split_on_silence, SENSITIVITY)
 
 
 def main():
@@ -23,6 +24,8 @@ def main():
     parser.add_argument("--sensitivities", default="default",
                         help="comma-separated, or 'all'")
     parser.add_argument("--out", default="results")
+    parser.add_argument("--hotword-sets", default="",
+                        help="extra biasing files to compare, comma separated")
     args = parser.parse_args()
 
     with open(args.refs, encoding="utf-8") as handle:
@@ -40,21 +43,34 @@ def main():
 
     lib = load_library(args.lib)
     samples = read_wav(args.wav)
+    # Cut once, so every configuration is judged on the same segments
+    segments = split_on_silence(samples, len(refs))
+    if len(segments) != len(refs):
+        sys.exit("split into %d segments for %d phrases - check the pauses"
+                 % (len(segments), len(refs)))
     os.makedirs(args.out, exist_ok=True)
 
-    biasings = [False, True] if words else [False]
-    for model, sensitivity, biased in itertools.product(models, sensitivities, biasings):
+    sets = [("plain", [])]
+    if words:
+        sets.append(("biased", words))
+    for path in filter(None, args.hotword_sets.split(",")):
+        with open(path, encoding="utf-8") as handle:
+            sets.append((os.path.basename(path).split(".")[0],
+                         [w.strip().lower() for w in handle if w.strip()]))
+    biasings = sets
+    for model, sensitivity, (label, biaswords) in itertools.product(
+            models, sensitivities, biasings):
         files = model_files(model)
+        biased = bool(biaswords)
         # A model with no bpe.vocab cannot bias at all, so its "biased" run
         # would be a duplicate of its plain one - and two identical runs
         # compared against each other invite a conclusion drawn from nothing.
         if biased and not files["bpe_vocab"]:
             continue
-        name = "%s.%s.%s" % (os.path.basename(model.rstrip("/")), sensitivity,
-                             "biased" if biased else "plain")
+        name = "%s.%s.%s" % (os.path.basename(model.rstrip("/")), sensitivity, label)
         started = time.monotonic()
-        heard, applied = decode(lib, files, samples, words if biased else [],
-                                sensitivity, 1.5)
+        heard, applied = decode(lib, files, samples, biaswords, sensitivity, 1.5,
+                                segments)
         # Against the wall clock of the audio itself. Above 1.0 the model cannot
         # keep up with someone speaking, which no accuracy score would reveal.
         realtime = (time.monotonic() - started) / (len(samples) / 16000.0)

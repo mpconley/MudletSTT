@@ -167,7 +167,71 @@ def read_wav(path):
     return [ints[i] / 32768.0 for i in range(count)]
 
 
-def decode(lib, files, samples, hotwords, sensitivity, hotwords_score):
+def split_on_silence(samples, expected):
+    """Cut the recording into exactly `expected` segments, at its longest pauses.
+
+    Letting the library's endpointer do the cutting looked simpler and was
+    wrong: models endpoint differently, so two configurations merge different
+    pairs of phrases and every reference after a merge lines up against the
+    wrong utterance. Cutting once, here, gives every configuration the same
+    segments to be judged on.
+
+    Cutting at a fixed silence length was the next wrong answer - the pause
+    inside "get newspaper" and the pause between two phrases are not reliably
+    different, and no single threshold separates them for every speaker. So the
+    count does the work instead: eight phrases means seven boundaries, which are
+    the seven longest silences in the recording, wherever they fall.
+    """
+    frame = SAMPLE_RATE // 100  # 10ms
+    energies = [sum(abs(v) for v in samples[at:at + frame]) / frame
+                for at in range(0, len(samples) - frame, frame)]
+    if not energies or expected < 1:
+        return []
+
+    ordered = sorted(energies)
+    quiet = ordered[len(ordered) // 10]
+    loud = ordered[-max(1, len(ordered) // 10)]
+    threshold = max(quiet * 3.0, quiet + (loud - quiet) * 0.06)
+
+    # A breath or a click inside a pause is not speech, and counting it as
+    # speech splits one long silence into two shorter ones - after which the
+    # longest-gaps rule below picks both halves of one pause and misses another
+    # pause entirely. Runs under 80ms are read as part of the silence.
+    speech = [energy > threshold for energy in energies]
+    index = 0
+    while index < len(speech):
+        if speech[index]:
+            end = index
+            while end < len(speech) and speech[end]:
+                end += 1
+            if end - index < 8:
+                for at in range(index, end):
+                    speech[at] = False
+            index = end
+        else:
+            index += 1
+
+    runs, run_start = [], None
+    for index, loud_enough in enumerate(speech):
+        if not loud_enough:
+            if run_start is None:
+                run_start = index
+        elif run_start is not None:
+            runs.append((run_start, index))
+            run_start = None
+    if run_start is not None:
+        runs.append((run_start, len(energies)))
+    # Leading and trailing silence bound the speech, they do not divide it
+    inner = [r for r in runs if r[0] > 0 and r[1] < len(energies)]
+
+    inner.sort(key=lambda r: r[1] - r[0], reverse=True)
+    cuts = sorted((first + last) // 2 for first, last in inner[:expected - 1])
+
+    bounds = [0] + [c * frame for c in cuts] + [len(samples)]
+    return [samples[bounds[i]:bounds[i + 1]] for i in range(len(bounds) - 1)]
+
+
+def decode(lib, files, samples, hotwords, sensitivity, hotwords_score, segments=None):
     # The struct goes inside a larger zeroed block for the same reason
     # SherpaRecognizer does it: a newer library reads fields appended after
     # this layout, and zeros make it substitute its own defaults.
@@ -209,38 +273,57 @@ def decode(lib, files, samples, hotwords, sensitivity, hotwords_score):
     recognizer = lib.SherpaOnnxCreateOnlineRecognizer(ctypes.byref(config))
     if not recognizer:
         sys.exit("the library refused this configuration")
-    stream = lib.SherpaOnnxCreateOnlineStream(recognizer)
-
-    utterances = []
-
-    def drain():
-        while lib.SherpaOnnxIsOnlineStreamReady(recognizer, stream):
-            lib.SherpaOnnxDecodeOnlineStream(recognizer, stream)
-        if lib.SherpaOnnxOnlineStreamIsEndpoint(recognizer, stream):
-            result = lib.SherpaOnnxGetOnlineStreamResult(recognizer, stream)
-            text = (result.contents.text or b"").decode(errors="replace").strip()
-            lib.SherpaOnnxDestroyOnlineRecognizerResult(result)
-            if text:
-                utterances.append(text)
-            lib.SherpaOnnxOnlineStreamReset(recognizer, stream)
 
     step = SAMPLE_RATE * CHUNK_MS // 1000
-    for start in range(0, len(samples), step):
-        chunk = samples[start:start + step]
-        buf = (c_float * len(chunk))(*chunk)
-        lib.SherpaOnnxOnlineStreamAcceptWaveform(stream, SAMPLE_RATE, buf, len(chunk))
-        drain()
+    # Half a second of digital silence after each segment, so the endpointer
+    # commits the utterance the way trailing silence in a recording would.
+    silence = [0.0] * (SAMPLE_RATE // 2)
 
-    lib.SherpaOnnxOnlineStreamInputFinished(stream)
-    while lib.SherpaOnnxIsOnlineStreamReady(recognizer, stream):
-        lib.SherpaOnnxDecodeOnlineStream(recognizer, stream)
-    result = lib.SherpaOnnxGetOnlineStreamResult(recognizer, stream)
-    tail = (result.contents.text or b"").decode(errors="replace").strip()
-    lib.SherpaOnnxDestroyOnlineRecognizerResult(result)
-    if tail:
-        utterances.append(tail)
+    def run(audio):
+        """Everything one segment decodes to, as a single line."""
+        stream = lib.SherpaOnnxCreateOnlineStream(recognizer)
+        parts = []
 
-    lib.SherpaOnnxDestroyOnlineStream(stream)
+        def collect():
+            while lib.SherpaOnnxIsOnlineStreamReady(recognizer, stream):
+                lib.SherpaOnnxDecodeOnlineStream(recognizer, stream)
+            if lib.SherpaOnnxOnlineStreamIsEndpoint(recognizer, stream):
+                result = lib.SherpaOnnxGetOnlineStreamResult(recognizer, stream)
+                text = (result.contents.text or b"").decode(errors="replace").strip()
+                lib.SherpaOnnxDestroyOnlineRecognizerResult(result)
+                if text:
+                    parts.append(text)
+                lib.SherpaOnnxOnlineStreamReset(recognizer, stream)
+
+        for offset in range(0, len(audio), step):
+            chunk = audio[offset:offset + step]
+            buf = (c_float * len(chunk))(*chunk)
+            lib.SherpaOnnxOnlineStreamAcceptWaveform(stream, SAMPLE_RATE, buf, len(chunk))
+            collect()
+        buf = (c_float * len(silence))(*silence)
+        lib.SherpaOnnxOnlineStreamAcceptWaveform(stream, SAMPLE_RATE, buf, len(silence))
+        collect()
+
+        lib.SherpaOnnxOnlineStreamInputFinished(stream)
+        while lib.SherpaOnnxIsOnlineStreamReady(recognizer, stream):
+            lib.SherpaOnnxDecodeOnlineStream(recognizer, stream)
+        result = lib.SherpaOnnxGetOnlineStreamResult(recognizer, stream)
+        tail = (result.contents.text or b"").decode(errors="replace").strip()
+        lib.SherpaOnnxDestroyOnlineRecognizerResult(result)
+        if tail:
+            parts.append(tail)
+        lib.SherpaOnnxDestroyOnlineStream(stream)
+        return " ".join(parts).strip()
+
+    if segments:
+        # A fresh stream per segment: one segment in, one line out, whatever the
+        # endpointer decided inside it. Alignment with the references then
+        # cannot drift, which is the whole reason the audio is cut up first.
+        utterances = [run(segment) for segment in segments]
+    else:
+        text = run(samples)
+        utterances = [text] if text else []
+
     lib.SherpaOnnxDestroyOnlineRecognizer(recognizer)
     return utterances, applied
 
@@ -253,6 +336,8 @@ def main():
     parser.add_argument("--hotwords", help="file of biasing words, one per line")
     parser.add_argument("--hotwords-score", type=float, default=1.5)
     parser.add_argument("--sensitivity", choices=sorted(SENSITIVITY), default="default")
+    parser.add_argument("--segments", type=int, default=0,
+                        help="split the recording into this many phrases at the silences")
     args = parser.parse_args()
 
     words = []
@@ -262,8 +347,13 @@ def main():
 
     lib = load_library(args.lib)
     files = model_files(args.model)
-    utterances, applied = decode(lib, files, read_wav(args.wav), words,
-                                 args.sensitivity, args.hotwords_score)
+    samples = read_wav(args.wav)
+    segments = split_on_silence(samples, args.segments) if args.segments else None
+    if segments is not None and len(segments) != args.segments:
+        sys.exit("split the recording into %d segments, expected %d - adjust the "
+                 "pauses or the gap threshold" % (len(segments), args.segments))
+    utterances, applied = decode(lib, files, samples, words,
+                                 args.sensitivity, args.hotwords_score, segments)
     json.dump({"model": os.path.basename(args.model.rstrip("/")),
                "sensitivity": args.sensitivity,
                "biasing": applied,
