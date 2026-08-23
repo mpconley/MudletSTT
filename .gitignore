@@ -3,3 +3,5 @@ build/
 version.txt
 .muddler
 .output
+__pycache__/
+*.pyc
