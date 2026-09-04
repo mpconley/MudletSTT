@@ -118,17 +118,27 @@ function sttpkg.ensureInit()
   end
   if stt.initialized() then return true end
   local model = sttpkg.findModel()
-  -- No model is not the same as nothing to load. A backend built into the
-  -- operating system - macOS's own recogniser today - has no model on disk and
-  -- is reached by init() with no argument, so asking for one and giving up is
-  -- how a Mac that needs no download ends up being told to download something.
-  -- The core refuses with a better message than this package can write when
-  -- there really is nothing, so let it answer.
+  -- A backend built into the operating system - macOS's own recogniser today -
+  -- has no model on disk and is reached by init() with no argument. Two things
+  -- otherwise hide it. Asking for a model and giving up when there is none is
+  -- the obvious one. The other is subtler and commoner: listModels() answers
+  -- from disk without the engine library, so a machine holding models for an
+  -- engine it can no longer load finds one, hands it over, and reports the
+  -- refusal - having never asked what else could run.
   local ok, err
   if model then
     ok, err = stt.init(model)
-  else
+  end
+  if not ok then
     ok, err = stt.init()
+    if ok and model then
+      -- Say what happened rather than starting something they did not ask for.
+      -- The reason itself is not repeated: the core already raised it as
+      -- sysSTTError and this package prints those, so echoing modelError here
+      -- shows the same paragraph of search paths twice.
+      cecho("<light_slate_gray>[STT] using the speech recognition built into this "
+        .. "system instead, which needs no engine or model installed\n")
+    end
   end
   if not ok then
     cecho("<red>[STT] Could not load the speech model: " .. tostring(err) .. "\n")
