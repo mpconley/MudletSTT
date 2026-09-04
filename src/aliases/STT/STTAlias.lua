@@ -62,7 +62,12 @@ elseif sub == "sensitivity" and (rest == "short" or rest == "default" or rest ==
   if sttpkg.applySensitivity() then
     cecho("<light_slate_gray>[STT] sensitivity " .. rest .. "\n")
   else
-    cecho("<orange>[STT] this Mudlet build cannot change sensitivity\n")
+    -- Saved either way: the setting is the package's, and a later engine may
+    -- honour what this one cannot. Not every refusal is a broken build - the
+    -- built-in macOS recogniser decides its own endpointing and refuses this
+    -- outright, which is a property of that engine and not a fault.
+    cecho("<orange>[STT] the current speech engine does not let its sensitivity be set; "
+      .. "kept as " .. rest .. " for engines that do\n")
   end
 elseif sub == "focus" and (rest == "stop" or rest == "keep") then
   sttpkg.config.stopOnFocusLoss = (rest == "stop")

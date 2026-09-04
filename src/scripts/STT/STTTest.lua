@@ -162,7 +162,7 @@ local function settingsLine()
   local engine, model, sensitivity = "?", "none", "?"
   if sttpkg.bridgeAvailable() then
     local info = stt.getInfo()
-    engine = info.backend or "?"
+    engine = (info.backend ~= "" and info.backend) or "none loaded"
     model = (info.modelPath or ""):match("[^/]+$") or "none"
     sensitivity = info.sensitivity or tostring(sttpkg.config.sensitivity)
   end

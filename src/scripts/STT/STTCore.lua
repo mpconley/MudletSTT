@@ -118,12 +118,18 @@ function sttpkg.ensureInit()
   end
   if stt.initialized() then return true end
   local model = sttpkg.findModel()
-  if not model then
-    cecho("<orange>[STT] No speech model installed. Install an engine pack, "
-      .. "or place a model under stt.getModelPath().\n")
-    return false
+  -- No model is not the same as nothing to load. A backend built into the
+  -- operating system - macOS's own recogniser today - has no model on disk and
+  -- is reached by init() with no argument, so asking for one and giving up is
+  -- how a Mac that needs no download ends up being told to download something.
+  -- The core refuses with a better message than this package can write when
+  -- there really is nothing, so let it answer.
+  local ok, err
+  if model then
+    ok, err = stt.init(model)
+  else
+    ok, err = stt.init()
   end
-  local ok, err = stt.init(model)
   if not ok then
     cecho("<red>[STT] Could not load the speech model: " .. tostring(err) .. "\n")
     return false
