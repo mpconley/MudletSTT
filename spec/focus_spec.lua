@@ -81,3 +81,28 @@ describe("stopping when Mudlet is not the active application", function()
     assert.is_false(stopped)
   end)
 end)
+
+-- Teardown is where a removed package gets its last chance to put things
+-- back. The quality test's timers are the ones that matter: they re-arm
+-- themselves and belong to the profile, so anything still running when the
+-- package goes carries on until Mudlet restarts.
+describe("sttpkg.teardown", function()
+  local shutdownCalled
+
+  before_each(function()
+    shutdownCalled = false
+    sttpkg.test = { shutdown = function() shutdownCalled = true end }
+    sttpkg.disable = function() end
+    sttpkg._handlers = {}
+  end)
+
+  it("shuts the quality test down", function()
+    sttpkg.teardown()
+    assert.is_true(shutdownCalled)
+  end)
+
+  it("survives a build where the test module never loaded", function()
+    sttpkg.test = nil
+    assert.has_no.errors(function() sttpkg.teardown() end)
+  end)
+end)

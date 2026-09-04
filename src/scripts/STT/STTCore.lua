@@ -442,6 +442,15 @@ local PACKAGE_NAME = "STT"
 -- button, and the event handlers. Mudlet raises the uninstall event before
 -- it deletes the package's scripts, so this still runs.
 function sttpkg.teardown()
+  -- A quality test left running keeps re-arming its level sampler every tenth
+  -- of a second, and nothing else ever stops it: the run is only cleared by
+  -- test.stop(), and the timers it holds belong to the profile rather than to
+  -- this package, so removing the package leaves them firing until Mudlet
+  -- restarts. Updating raises sysUninstall too, so this is the ordinary
+  -- upgrade path and not only a deliberate removal.
+  if sttpkg.test and sttpkg.test.shutdown then
+    sttpkg.test.shutdown()
+  end
   sttpkg.disable()
   if sttpkg.ui and sttpkg.ui.teardown then
     sttpkg.ui.teardown()

@@ -122,3 +122,67 @@ describe("sttpkg.test scoring", function()
     end)
   end)
 end)
+
+-- The runner half needs Mudlet, but the timer bookkeeping does not: what it
+-- has to get right is that nothing stays armed once a run is over, and a
+-- stubbed tempTimer/killTimer pair is enough to see that. Left unstopped, the
+-- level sampler re-arms itself forever and outlives the package.
+describe("sttpkg.test timer lifecycle", function()
+  local armed
+
+  before_each(function()
+    armed = {}
+    local nextId = 0
+    _G.tempTimer = function()
+      nextId = nextId + 1
+      armed[nextId] = true
+      return nextId
+    end
+    _G.killTimer = function(id)
+      armed[id] = nil
+      return true
+    end
+    _G.cecho = function() end
+    sttpkg.disable = function() end
+    sttpkg.listening = function() return true end
+  end)
+
+  local function armedCount()
+    local n = 0
+    for _ in pairs(armed) do n = n + 1 end
+    return n
+  end
+
+  it("cancels every timer a run owns, including the warm-up", function()
+    test._run = {
+      timerId = tempTimer(), levelTimerId = tempTimer(), warmupTimerId = tempTimer(),
+      wasListening = true,
+    }
+    assert.equals(3, armedCount())
+
+    test.stop(true)
+
+    assert.is_false(test.active())
+    -- Only the drain timer stop() arms itself is left
+    assert.equals(1, armedCount())
+  end)
+
+  it("shutdown leaves nothing armed at all", function()
+    test._run = {
+      timerId = tempTimer(), levelTimerId = tempTimer(), warmupTimerId = tempTimer(),
+      wasListening = true,
+    }
+
+    test.shutdown()
+
+    assert.is_false(test.active())
+    assert.equals(0, armedCount())
+    assert.is_false(test._draining)
+  end)
+
+  it("shutdown is safe with no run in progress", function()
+    test._run = nil
+    assert.has_no.errors(function() test.shutdown() end)
+    assert.equals(0, armedCount())
+  end)
+end)

@@ -147,14 +147,18 @@ function test.active()
   return test._run ~= nil
 end
 
+-- Named in one place so a new timer cannot be added and forgotten here. An id
+-- left armed outlives the package: tempTimer ids belong to the profile, not to
+-- the script that armed them, so uninstalling does not reap them.
+local RUN_TIMER_FIELDS = { "timerId", "levelTimerId", "warmupTimerId" }
+
 local function clearTimer()
-  if test._run and test._run.timerId then
-    killTimer(test._run.timerId)
-    test._run.timerId = nil
-  end
-  if test._run and test._run.levelTimerId then
-    killTimer(test._run.levelTimerId)
-    test._run.levelTimerId = nil
+  if not test._run then return end
+  for _, field in ipairs(RUN_TIMER_FIELDS) do
+    if test._run[field] then
+      killTimer(test._run[field])
+      test._run[field] = nil
+    end
   end
 end
 
@@ -306,7 +310,7 @@ function test.start(passes, phrases)
     prompt()
   else
     cecho("<light_slate_gray>Waiting for the microphone to open...\n")
-    tempTimer(MICROPHONE_WARMUP_SECONDS, function() prompt() end)
+    test._run.warmupTimerId = tempTimer(MICROPHONE_WARMUP_SECONDS, function() prompt() end)
   end
   return true
 end
@@ -332,10 +336,23 @@ function test.stop(quiet)
   local wasListening = test._run.wasListening
   test._run = nil
   test._draining = true
-  tempTimer(DRAIN_SECONDS, function() test._draining = false end)
+  test._drainTimerId = tempTimer(DRAIN_SECONDS, function() test._draining = false end)
   if not wasListening then sttpkg.disable() end
   if not quiet then cecho("<light_slate_gray>[STT] test stopped\n")  end
   return true
+end
+
+--- Stop a run and cancel everything it scheduled, for a package going away.
+-- stop() on its own is not enough here, because it arms the drain timer, and
+-- draining exists to keep a late final away from the game through handlers
+-- that teardown is removing in the same breath.
+function test.shutdown()
+  test.stop(true)
+  if test._drainTimerId then
+    killTimer(test._drainTimerId)
+    test._drainTimerId = nil
+  end
+  test._draining = false
 end
 
 function test.report()
