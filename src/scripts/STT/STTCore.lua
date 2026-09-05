@@ -179,10 +179,24 @@ function sttpkg.biasWords(limit)
     end
   end
 
-  -- What is in reach goes in first. The budget is small and these are the
-  -- words about to be spoken, whereas most of the catalog is commands the
-  -- recogniser already gets right; spending the budget the other way round is
-  -- what made biasing measure worse than not biasing at all.
+  -- What is in reach goes in first: these are the words about to be spoken,
+  -- and if the budget ever truncated before them the biasing would lose most
+  -- of its value. Measured on a real recording of eight commands, a 50-word
+  -- budget spent so the in-scope words fell off the end scored 4/8 phrases
+  -- exact against 6/8 with them kept.
+  --
+  -- What is NOT true, and was written here before any of it was measured, is
+  -- that the rest of the catalog is "commands the recogniser already gets
+  -- right" and so a poor use of the budget. The command verbs are what fix
+  -- "YET HEART" into "get heartwood" and "TILL IRON PELT" into "kill
+  -- ironpelt". Biasing the in-scope nouns alone scores 4/8, the verbs alone
+  -- 4/8, and the two together 6/8 - neither half buys anything on its own,
+  -- because a phrase is a verb and a noun and both have to be reached.
+  --
+  -- Nor does the wrong order make biasing "worse than not biasing at all":
+  -- it scored the same as no useful biasing, not below it. The budget itself
+  -- is not the constraint either - 25 words and 600 words score identically,
+  -- so MAX_BIAS_WORDS is nowhere near where dilution would start.
   if sttpkg.context and sttpkg.context.inScope then
     for _, word in ipairs(sttpkg.context.inScope()) do
       offer(word)
