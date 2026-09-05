@@ -15,16 +15,24 @@ dofile("src/scripts/STT/STTCorrect.lua")
 dofile("src/scripts/STT/STTCore.lua")
 
 describe("sttpkg.applySensitivity", function()
-  local function withEngine(canTune, accepts)
+  local asked
+
+  -- stateAfter models what the engine looks like once the call returns, which
+  -- is the only thing that separates a rebuild that failed from one that was
+  -- merely declined - the capability is sampled before the attempt.
+  local function withEngine(canTune, accepts, stateAfter)
+    asked = nil
     _G.stt = {
       -- bridgeAvailable() tests for stt.init, so a stub without it is a
       -- missing bridge rather than the engine this case is about
       init = function() return true end,
-      initialized = function() return true end,
       getInfo = function()
-        return { capabilities = { sensitivityTuning = canTune } }
+        return { capabilities = { sensitivityTuning = canTune }, state = stateAfter or "ready" }
       end,
-      setSensitivity = function() return accepts or nil end,
+      setSensitivity = function(mode)
+        asked = mode
+        return accepts or nil
+      end,
     }
   end
 
@@ -50,10 +58,39 @@ describe("sttpkg.applySensitivity", function()
   -- "this engine does not let its sensitivity be set", a player stops asking
   -- for something that was about to work.
   it("calls a busy engine that can tune deferred, not unsupported", function()
-    withEngine(true, nil)
+    withEngine(true, nil, "listening")
     local applied, why = sttpkg.applySensitivity()
     assert.is_false(applied)
     assert.are.equal("deferred", why)
+  end)
+
+  -- The opposite advice, and the reason "deferred" alone was not enough. An
+  -- idle sherpa rebuilds its model to change the endpoint rules, and a rebuild
+  -- that fails leaves nothing loaded - "takes effect at the next model load"
+  -- would send the player away from the one thing that fixes it.
+  it("calls a rebuild that killed the engine failed, not deferred", function()
+    withEngine(true, nil, "error")
+    local applied, why = sttpkg.applySensitivity()
+    assert.is_false(applied)
+    assert.are.equal("failed", why)
+  end)
+
+  -- The configured value has to be the one offered. Every other case here uses
+  -- "short", which is also the fallback, so none of them can tell the two apart.
+  it("offers the configured mode rather than the fallback", function()
+    withEngine(true, true)
+    sttpkg.config.sensitivity = "long"
+    sttpkg.applySensitivity()
+    assert.are.equal("long", asked)
+  end)
+
+  -- A Mudlet with the bridge but no setter at all - anything predating
+  -- stt.setSensitivity. Calling it would throw up through the alias.
+  it("is unsupported when the bridge has no setter", function()
+    _G.stt = { init = function() return true end, getInfo = function() return {} end }
+    local applied, why = sttpkg.applySensitivity()
+    assert.is_false(applied)
+    assert.are.equal("unsupported", why)
   end)
 
   -- A Mudlet predating the flag cannot distinguish them, and guessing

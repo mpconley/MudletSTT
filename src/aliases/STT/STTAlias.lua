@@ -66,8 +66,16 @@ elseif sub == "sensitivity" and (rest == "short" or rest == "default" or rest ==
     -- This engine can tune, it just could not right now - it was listening, or
     -- mid phrase. The core keeps the value and builds it into the next model
     -- it loads, so telling the player it cannot be set would be wrong twice.
-    cecho("<light_slate_gray>[STT] sensitivity " .. rest
-      .. " - kept, and takes effect when the engine next loads a model\n")
+    -- Acknowledged rather than explained: the core has already said why
+    -- through sysSTTError, which this package prints, and repeating it here
+    -- shows the same sentence twice.
+    cecho("<light_slate_gray>[STT] sensitivity " .. rest .. " - not yet in effect\n")
+  elseif why == "failed" then
+    -- Not a wait-and-see: the engine tried, and what came back is an engine
+    -- with nothing loaded. Saying "takes effect at the next model load" here
+    -- would send the player away from the one thing that fixes it.
+    cecho("<orange>[STT] sensitivity " .. rest
+      .. " saved, but the engine could not be rebuilt for it and is now unloaded - run: stt\n")
   else
     -- Saved either way: the setting is the package's, and a later engine may
     -- honour what this one cannot. Not every refusal is a broken build - the

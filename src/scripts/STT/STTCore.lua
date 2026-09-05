@@ -234,8 +234,11 @@ end
 --   "unsupported"  this engine can never tune it - stop offering
 --   "deferred"     it can, but not just now; the core kept the value and will
 --                  build it in at its next model load
+--   "failed"       it tried and the engine is worse off than before - a
+--                  reload that did not come back, leaving nothing loaded
 -- The value is saved by the caller either way, so the difference is only in
--- what the player is told.
+-- what the player is told - but "deferred" and "failed" are opposite advice,
+-- one to wait and one to act.
 function sttpkg.applySensitivity()
   if not sttpkg.bridgeAvailable() or type(stt.setSensitivity) ~= "function" then
     return false, "unsupported"
@@ -254,6 +257,18 @@ function sttpkg.applySensitivity()
 
   if stt.setSensitivity(sttpkg.config.sensitivity or "short") then
     return true
+  end
+
+  -- Two refusals arrive here and they are opposites. sherpa rebuilds the model
+  -- to change its endpoint rules: busy, it declines and keeps the value for the
+  -- next load; idle, it rebuilds, and a rebuild that fails leaves the engine in
+  -- error with no model at all. Both answer the same way, and the capability
+  -- was sampled before the attempt so it cannot tell them apart - only the
+  -- state afterwards can. Calling the second one "kept, takes effect at the
+  -- next model load" promises something nothing is going to do, which is the
+  -- same false reassurance this function was written to stop giving.
+  if (stt.getInfo() or {}).state == "error" then
+    return false, "failed"
   end
   return false, "deferred"
 end
