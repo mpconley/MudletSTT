@@ -59,8 +59,15 @@ elseif sub == "timeout" and tonumber(rest) then
 elseif sub == "sensitivity" and (rest == "short" or rest == "default" or rest == "long") then
   sttpkg.config.sensitivity = rest
   sttpkg.saveConfig()
-  if sttpkg.applySensitivity() then
+  local applied, why = sttpkg.applySensitivity()
+  if applied then
     cecho("<light_slate_gray>[STT] sensitivity " .. rest .. "\n")
+  elseif why == "deferred" then
+    -- This engine can tune, it just could not right now - it was listening, or
+    -- mid phrase. The core keeps the value and builds it into the next model
+    -- it loads, so telling the player it cannot be set would be wrong twice.
+    cecho("<light_slate_gray>[STT] sensitivity " .. rest
+      .. " - kept, and takes effect when the engine next loads a model\n")
   else
     -- Saved either way: the setting is the package's, and a later engine may
     -- honour what this one cannot. Not every refusal is a broken build - the

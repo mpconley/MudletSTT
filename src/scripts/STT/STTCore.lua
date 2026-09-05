@@ -224,11 +224,38 @@ end
 --- Push the configured sensitivity to the engine, if this core has the
 -- setting at all. Applied after the model loads, so an engine that rebuilds
 -- to change its endpointing does so once, here, rather than mid-session.
+-- Three outcomes, not two, because the caller has three things to say. The
+-- engine's own answer cannot separate them: a backend that can never tune its
+-- end-of-speech detection and one whose model rebuild failed both refuse the
+-- same way. capabilities.sensitivityTuning is the question asked before the
+-- attempt, and the one that tells them apart.
+--
+-- Returns true when the setting is in force. Otherwise false and why:
+--   "unsupported"  this engine can never tune it - stop offering
+--   "deferred"     it can, but not just now; the core kept the value and will
+--                  build it in at its next model load
+-- The value is saved by the caller either way, so the difference is only in
+-- what the player is told.
 function sttpkg.applySensitivity()
   if not sttpkg.bridgeAvailable() or type(stt.setSensitivity) ~= "function" then
-    return false
+    return false, "unsupported"
   end
-  return stt.setSensitivity(sttpkg.config.sensitivity or "short") and true or false
+
+  -- nil on a core predating the flag, where the two really are indivisible -
+  -- treat that as before rather than promising a retry that may never work
+  local capabilities = (stt.getInfo() or {}).capabilities
+  local canTune = capabilities and capabilities.sensitivityTuning
+  if canTune ~= true then
+    if stt.setSensitivity(sttpkg.config.sensitivity or "short") then
+      return true
+    end
+    return false, "unsupported"
+  end
+
+  if stt.setSensitivity(sttpkg.config.sensitivity or "short") then
+    return true
+  end
+  return false, "deferred"
 end
 
 --- Load a specific installed model by name fragment, so alternatives can be
