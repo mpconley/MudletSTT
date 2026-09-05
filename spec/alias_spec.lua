@@ -1,8 +1,9 @@
 -- The alias is the only place the sensitivity outcomes become sentences a
--- player reads, and it maps them by comparing strings - so a typo in one of
--- those comparisons falls through to the wrong message with every other spec
--- still green. That is the bug this whole change exists to fix, so the mapping
--- is worth pinning rather than trusting.
+-- player reads. Everything else here can be right and a player still be told
+-- the wrong thing, because the mapping is string comparisons written by hand:
+-- mistype one and it falls through to the next branch with every other spec
+-- still green. That is not the bug this change fixes - the comparisons are new
+-- here - but it is the way this change would come undone.
 --
 -- busted sandboxes a spec chunk's own globals, so everything the dofile'd
 -- alias reads has to be set through _G explicitly.

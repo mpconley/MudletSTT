@@ -224,18 +224,22 @@ end
 --- Push the configured sensitivity to the engine, if this core has the
 -- setting at all. Applied after the model loads, so an engine that rebuilds
 -- to change its endpointing does so once, here, rather than mid-session.
--- Three outcomes, not two, because the caller has three things to say. The
--- engine's own answer cannot separate them: a backend that can never tune its
--- end-of-speech detection and one whose model rebuild failed both refuse the
--- same way. capabilities.sensitivityTuning is the question asked before the
--- attempt, and the one that tells them apart.
+-- Four outcomes, because the caller has four things to say and the engine's
+-- own boolean says only "no". It does return a message alongside, and the two
+-- refusals word it differently - but matching on message text is the kind of
+-- coupling that breaks silently when someone rewords a string, so the state
+-- around the call is read instead. capabilities.sensitivityTuning answers the
+-- permanent question before the attempt; the state before and after answers
+-- what the attempt did.
 --
 -- Returns true when the setting is in force. Otherwise false and why:
---   "unsupported"  this engine can never tune it - stop offering
+--   "unsupported"  nothing here can tune it - this engine never can, or this
+--                  Mudlet has no setter, or it is too old to say which of the
+--                  two a refusal was. Stop offering either way.
 --   "deferred"     it can, but not just now; the core kept the value and will
 --                  build it in at its next model load
---   "failed"       it tried and the engine is worse off than before - a
---                  reload that did not come back, leaving nothing loaded
+--   "failed"       it rebuilt and the rebuild did not come back, leaving the
+--                  engine worse off than before with nothing loaded
 -- The value is saved by the caller either way, so the difference is only in
 -- what the player is told - but "deferred" and "failed" are opposite advice,
 -- one to wait and one to act.
@@ -255,19 +259,23 @@ function sttpkg.applySensitivity()
     return false, "unsupported"
   end
 
+  -- Read before the attempt, not only after it. sherpa rebuilds the model to
+  -- change its endpoint rules, and it only does that from idle: from anything
+  -- else it declines and keeps the value for the next load. So a rebuild can
+  -- only have run - and only have failed - if the engine was idle going in.
+  --
+  -- Reading the state afterwards alone gets this wrong in a way that matters.
+  -- An engine already sitting in error with its handles alive, which is where
+  -- a denied microphone leaves it, declines exactly as a busy one does and
+  -- says so - and would then be reported as a rebuild that had killed it,
+  -- contradicting the engine's own message on the line above.
+  local stateBefore = (stt.getInfo() or {}).state
+
   if stt.setSensitivity(sttpkg.config.sensitivity or "short") then
     return true
   end
 
-  -- Two refusals arrive here and they are opposites. sherpa rebuilds the model
-  -- to change its endpoint rules: busy, it declines and keeps the value for the
-  -- next load; idle, it rebuilds, and a rebuild that fails leaves the engine in
-  -- error with no model at all. Both answer the same way, and the capability
-  -- was sampled before the attempt so it cannot tell them apart - only the
-  -- state afterwards can. Calling the second one "kept, takes effect at the
-  -- next model load" promises something nothing is going to do, which is the
-  -- same false reassurance this function was written to stop giving.
-  if (stt.getInfo() or {}).state == "error" then
+  if stateBefore == "ready" and (stt.getInfo() or {}).state == "error" then
     return false, "failed"
   end
   return false, "deferred"

@@ -63,8 +63,9 @@ elseif sub == "sensitivity" and (rest == "short" or rest == "default" or rest ==
   if applied then
     cecho("<light_slate_gray>[STT] sensitivity " .. rest .. "\n")
   elseif why == "deferred" then
-    -- This engine can tune, it just could not right now - it was listening, or
-    -- mid phrase. The core keeps the value and builds it into the next model
+    -- This engine can tune, it just could not right now - it was listening, mid
+    -- phrase, or already in error with its handles alive, which is where a
+    -- denied microphone leaves it. The core keeps the value and builds it into the next model
     -- it loads, so telling the player it cannot be set would be wrong twice.
     -- Acknowledged rather than explained: the core has already said why
     -- through sysSTTError, which this package prints, and repeating it here
