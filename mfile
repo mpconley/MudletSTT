@@ -2,7 +2,7 @@
        "package": "STT",
        "title": "MudletSTT",
        "description": "Speech-to-text for Mudlet: microphone toggle, command-line routing, and MCVP vocabulary correction over the stt.* bridge.",
-       "version": "1.2.3",
+       "version": "1.2.4",
        "author": "Tamarindo",
        "icon": "icon.png",
        "dependencies": "MCVP",
