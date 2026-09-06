@@ -21,6 +21,19 @@ end
 -- control is owned by the profile - but the handler that was registered by
 -- the removed script does not. That left a button which silently did nothing
 -- after a reinstall.
+-- Which profile this control belongs to, for the tooltip. Every open profile
+-- installs its own copy of this package and adds its own button, and they all
+-- read "Speech" - so with two games open there are two identical microphones
+-- in one toolbar and nothing saying which is which. The label stays short
+-- because that is what the toolbar has room for; the tooltip carries the
+-- answer, and it is the tooltip a player checks when two of them puzzle them.
+local function profileSuffix()
+  if type(getProfileName) ~= "function" then return "" end
+  local ok, name = pcall(getProfileName)
+  if not ok or type(name) ~= "string" or name == "" then return "" end
+  return " [" .. name .. "]"
+end
+
 function sttpkg.ui.ensureCommand()
   if type(addCommand) ~= "function" then return end
   sttpkg.ui.teardown()
@@ -32,7 +45,7 @@ function sttpkg.ui.ensureCommand()
   local id, why = addCommand{
     name = "Speech",
     icon = iconPath(),
-    tooltip = "Toggle speech recognition",
+    tooltip = "Toggle speech recognition" .. profileSuffix(),
     menuPath = "Speech",
     surfaces = {"menu", "toolbar"},
   }
@@ -71,7 +84,7 @@ function sttpkg.ui.refresh(state)
   elseif state == "error" then
     tooltip = "Speech: error - see the main window"
   end
-  setCommandTooltip(sttpkg.ui.commandId, tooltip)
+  setCommandTooltip(sttpkg.ui.commandId, tooltip .. profileSuffix())
 end
 
 --- Remove the command and its handler, so a control never outlives the code

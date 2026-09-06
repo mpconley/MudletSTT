@@ -16,7 +16,7 @@ read_globals = {
   "getMudletHomeDir", "io", "table",
   -- Read only for the version line "stt status" prints, and both guarded with
   -- type() before use: an older Mudlet without either still has to work
-  "getPackageInfo", "getMudletVersion",
+  "getPackageInfo", "getMudletVersion", "getProfileName",
   -- Mudlet fills this in from the game's GMCP messages
   "gmcp",
   -- The addon command API, which replaced the split toolbar/menu functions

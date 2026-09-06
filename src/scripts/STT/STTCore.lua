@@ -226,24 +226,36 @@ function sttpkg.biasWords(limit)
     end
   end
 
-  -- What is in reach goes in first: these are the words about to be spoken,
-  -- and if the budget ever truncated before them the biasing would lose most
-  -- of its value. Measured on a real recording of eight commands, a 50-word
-  -- budget spent so the in-scope words fell off the end scored 4/8 phrases
-  -- exact against 6/8 with them kept.
+  -- What is in reach goes in first: these are the words about to be spoken.
+  -- Measured on a recording of eight commands, a 50-word budget spent so the
+  -- in-scope words fell off the end scored 4/8 phrases exact against 6/8 with
+  -- them kept, and the budget itself is not the constraint - 25 words and 600
+  -- words score identically, so MAX_BIAS_WORDS is nowhere near dilution.
   --
-  -- What is NOT true, and was written here before any of it was measured, is
-  -- that the rest of the catalog is "commands the recogniser already gets
-  -- right" and so a poor use of the budget. The command verbs are what fix
-  -- "YET HEART" into "get heartwood" and "TILL IRON PELT" into "kill
-  -- ironpelt". Biasing the in-scope nouns alone scores 4/8, the verbs alone
-  -- 4/8, and the two together 6/8 - neither half buys anything on its own,
-  -- because a phrase is a verb and a noun and both have to be reached.
+  -- What the budget is spent on decides whether biasing helps at all, and it
+  -- can hurt. Two measurements, same engine and same score:
   --
-  -- Nor does the wrong order make biasing "worse than not biasing at all":
-  -- it scored the same as no useful biasing, not below it. The budget itself
-  -- is not the constraint either - 25 words and 600 words score identically,
-  -- so MAX_BIAS_WORDS is nowhere near where dilution would start.
+  --   a recording whose phrases the decoder got wrong - heartwood, ironpelt,
+  --   gnome - biasing took 7 word errors to 2
+  --
+  --   a live session whose phrases it mostly got right - look, north,
+  --   inventory, get sword - biasing took 70% exact to 60%, and first-word
+  --   losses from 1 to 7 in thirty utterances
+  --
+  -- Turning biasing on also switches sherpa from greedy decoding to modified
+  -- beam search, but that is not what does the damage: beam search with the
+  -- score set to nothing scores exactly as greedy does. It is the reweighting
+  -- itself, and it perturbs words that were already right.
+  --
+  -- So the sentence that stood here before any of this was measured - that
+  -- most of the catalog is "commands the recogniser already gets right", and
+  -- spending the budget on them is what made biasing measure worse than no
+  -- biasing - was closer to right than the correction that replaced it. The
+  -- correction was drawn from the one recording where those verbs happened to
+  -- be missed, and generalised from it. Both are true of their own recording;
+  -- neither generalises. Which words are worth the budget depends on which
+  -- ones this speaker and this game actually lose, which is what
+  -- "stt test scope" is for.
   if sttpkg.context and sttpkg.context.inScope then
     for _, word in ipairs(sttpkg.context.inScope()) do
       offer(word)
