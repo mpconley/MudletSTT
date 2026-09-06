@@ -33,6 +33,9 @@ elseif sub == "status" then
   cecho(string.format("<light_slate_gray>[STT] sensitivity %s, focus %s\n",
     tostring(sttpkg.config.sensitivity),
     sttpkg.config.stopOnFocusLoss and "stop" or "keep"))
+  -- Last, because it is the line someone is asked to paste rather than the one
+  -- they came for: what is installed, and how current each piece is.
+  cecho("<light_slate_gray>[STT] " .. sttpkg.versions() .. "\n")
 elseif sub == "autosend" and onOff(rest) ~= nil then
   sttpkg.config.autosend = onOff(rest)
   sttpkg.saveConfig()
@@ -123,9 +126,18 @@ elseif sub == "model" and rest ~= "" and rest ~= nil then
 elseif sub == "bias" and onOff(rest) ~= nil then
   sttpkg.config.biasing = onOff(rest)
   sttpkg.saveConfig()
-  local applied = sttpkg.applyVocabulary()
-  if sttpkg.config.biasing and applied == 0 then
+  local applied, why = sttpkg.applyVocabulary()
+  if why == "deferred" then
+    -- The engine rebuilds its decoder to change what it biases toward and
+    -- cannot while it is listening. It has kept the request; saying the model
+    -- cannot bias would be wrong, and so would reporting the new count, since
+    -- the decoder is still running with the old one.
+    cecho(string.format("<light_slate_gray>[STT] biasing %s - takes effect at the next model load,"
+      .. " still %d words until then\n", rest, applied))
+  elseif sttpkg.config.biasing and why == "unsupported" then
     cecho("<orange>[STT] biasing on, but this model cannot bias its decoding\n")
+  elseif sttpkg.config.biasing and why == "nocatalog" then
+    cecho("<orange>[STT] biasing on, but no game vocabulary has arrived to bias toward\n")
   else
     cecho(string.format("<light_slate_gray>[STT] biasing %s (%d words)\n", rest, applied))
   end

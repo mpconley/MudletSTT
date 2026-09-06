@@ -66,6 +66,53 @@ function sttpkg.loadConfig()
 end
 
 --- Whether the running Mudlet carries the stt.* bridge at all.
+--- One line naming everything a troubleshooter would otherwise have to ask
+-- for: which Mudlet, which speech package, and which vocabulary provider.
+--
+-- The provider is reported by what is actually present rather than as "MCVP",
+-- because nothing here requires it to be MCVP - anything supplying an mcvp
+-- table of the same shape fills the same slot, and a report that names the
+-- package we happen to ship would quietly mislead whoever swapped it.
+--
+-- The catalog version is kept separate from the package version on purpose.
+-- They look alike and mean nothing alike: one is the release of the addon
+-- installed here, the other is a number the *game* sends and bumps when its
+-- own vocabulary changes. Reading a stale catalog as an out-of-date package
+-- sends a troubleshooter after the wrong thing entirely.
+function sttpkg.versions()
+  local function packageVersion(name)
+    if type(getPackageInfo) ~= "function" then return nil end
+    local ok, info = pcall(getPackageInfo, name)
+    if not ok or type(info) ~= "table" then return nil end
+    local version = info.version
+    return (type(version) == "string" and version ~= "") and version or nil
+  end
+
+  local parts = {}
+  -- The literal rather than PACKAGE_NAME: that local is declared far below
+  -- this function, so naming it here would read a nil global instead.
+  parts[#parts + 1] = "STT " .. (packageVersion("STT") or "unknown")
+
+  if type(mcvp) == "table" then
+    local provider = packageVersion("MCVP")
+    local catalog = type(mcvp.version) == "function" and mcvp.version() or nil
+    parts[#parts + 1] = string.format("vocabulary %s%s",
+      provider and ("MCVP " .. provider) or "provider present, version unknown",
+      catalog and (", game catalog v" .. tostring(catalog)) or ", no catalog received yet")
+  else
+    parts[#parts + 1] = "no vocabulary provider installed"
+  end
+
+  if type(getMudletVersion) == "function" then
+    local ok, version = pcall(getMudletVersion, "string")
+    if ok and type(version) == "string" then
+      parts[#parts + 1] = "Mudlet " .. version
+    end
+  end
+
+  return table.concat(parts, " | ")
+end
+
 function sttpkg.bridgeAvailable()
   return type(stt) == "table" and type(stt.init) == "function"
 end
@@ -215,24 +262,52 @@ end
 -- recognition toward it. Returns the number of words applied, 0 when the
 -- backend declined - which is not a failure but the signal to keep relying on
 -- client-side correction instead.
+-- Returns the number of words now biasing the decoder, and when that is zero,
+-- why - the same three-way shape applySensitivity() uses, and for the same
+-- reason. "unsupported" is a property of the model; "deferred" is this moment
+-- only, and the engine has kept the words for its next load. Reported as one
+-- number they were indistinguishable, and a deferral was announced to the
+-- player as a model that cannot bias at all.
 function sttpkg.applyVocabulary()
   if not sttpkg.bridgeAvailable() or type(stt.setVocabulary) ~= "function" then
-    return 0
+    return 0, "unsupported"
   end
-  if not (mcvp and mcvp.entries) then return 0 end
+  if not (mcvp and mcvp.entries) then return 0, "nocatalog" end
   if not sttpkg.config.biasing then
     -- Withdraw anything applied earlier, so turning it off takes effect
     -- rather than waiting for a restart
-    if (sttpkg._biasWords or 0) > 0 then stt.setVocabulary({}) end
+    if (sttpkg._biasWords or 0) > 0 then
+      -- Only forget them if the engine actually took the withdrawal. Zeroing
+      -- regardless said "biasing 0 words" while the decoder still held the
+      -- old list, which then labelled a quality-test run with a setting the
+      -- decode had not used.
+      if stt.setVocabulary({}) then
+        sttpkg._biasWords = 0
+      else
+        return sttpkg._biasWords, "deferred"
+      end
+    end
     sttpkg._biasWords = 0
     return 0
   end
 
   local words = sttpkg.biasWords()
-  if #words == 0 then return 0 end
+  if #words == 0 then return 0, "nowords" end
 
-  sttpkg._biasWords = stt.setVocabulary(words) and #words or 0
-  return sttpkg._biasWords
+  if stt.setVocabulary(words) then
+    sttpkg._biasWords = #words
+    return sttpkg._biasWords
+  end
+
+  -- The engine said no. Whether it can never bias or merely could not just
+  -- now is the capability's answer, not this one's - and the count stays as
+  -- it was, because whatever the decoder was built with is still what it has.
+  local capabilities = (stt.getInfo() or {}).capabilities
+  if capabilities and capabilities.biasing == false then
+    sttpkg._biasWords = 0
+    return 0, "unsupported"
+  end
+  return sttpkg._biasWords or 0, "deferred"
 end
 
 --- Push the configured sensitivity to the engine, if this core has the
