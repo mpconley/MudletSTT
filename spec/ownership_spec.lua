@@ -38,7 +38,8 @@ end)
 
 describe("stopping a session this profile may not own", function()
   it("says it stopped when the stop was taken", function()
-    _G.stt = { init = function() return true end, listening = function() return true end, stop = function() return true end }
+    _G.stt = { init = function() return true end, listening = function() return true end,
+               stop = function() return true end }
     assert.is_true(sttpkg.disable())
     assert.is_true(saidSomethingAbout("stopped"))
   end)
@@ -48,7 +49,8 @@ describe("stopping a session this profile may not own", function()
   -- its stop refused, and would otherwise report a stop that never happened
   -- while another game carried on listening.
   it("says nothing when the stop was refused", function()
-    _G.stt = { init = function() return true end, listening = function() return true end, stop = function() return nil, "another profile is listening" end }
+    _G.stt = { init = function() return true end, listening = function() return true end,
+               stop = function() return nil, "another profile is listening" end }
     local stopped = sttpkg.disable()
     assert.is_nil(stopped)
     assert.is_false(saidSomethingAbout("stopped"))
@@ -56,7 +58,8 @@ describe("stopping a session this profile may not own", function()
 
   it("does not reach the bridge at all when this profile is not listening", function()
     local asked = false
-    _G.stt = { init = function() return true end, listening = function() return false end, stop = function() asked = true return true end }
+    _G.stt = { init = function() return true end, listening = function() return false end,
+               stop = function() asked = true return true end }
     sttpkg.disable()
     assert.is_false(asked)
     assert.is_false(saidSomethingAbout("stopped"))
