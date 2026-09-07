@@ -35,6 +35,9 @@ local CATALOG = {
     -- Several patterns taking the same slot, as the real catalog has: get,
     -- eat, wear, open and drink all name an item, and taking the first match
     -- for each is what produced six ways of saying "beer"
+    { word = "examine", syntax = "examine %item", priority = 1 },
+    { word = "drop", syntax = "drop %item", priority = 1 },
+    -- Not carrier verbs: nothing here can know a lantern is inedible
     { word = "eat", syntax = "eat %item", priority = 1 },
     { word = "wear", syntax = "wear %item", priority = 1 },
     { word = "help", syntax = "help %word", priority = 3 },
@@ -78,9 +81,14 @@ before_each(function()
     end,
   }
   sttpkg.context = {
+    names = function(opts)
+      if opts.slot == "%item" then return { "A brass lantern" } end
+      if opts.slot == "%living" then return { "Ironpelt the boar" } end
+      return {}
+    end,
     inScope = function(opts)
-      if opts.slot == "%item" then return { "lantern" } end
-      if opts.slot == "%living" then return { "ironpelt" } end
+      if opts.slot == "%item" then return { "brass", "lantern" } end
+      if opts.slot == "%living" then return { "ironpelt", "boar" } end
       return {}
     end,
   }
@@ -98,16 +106,31 @@ describe("filling a pattern from what is here", function()
   end)
 
   it("puts prose where the message goes", function()
-    assert.equals("wiz the today is rather", test.fillPattern("wiz %text"))
+    -- Not the first candidate: this catalog has "kill", which is one edit from
+    -- "will", so the first sentence is rejected exactly as intended
+    assert.equals("wiz let me check on something first", test.fillPattern("wiz %text"))
   end)
 
   -- The first version of the pool was "hello there everyone", against a game
   -- with a social called hallo: a body coming back wrong could then mean the
   -- prose was corrupted or that the decoder heard a genuinely ambiguous word,
   -- and the run could not say which
-  it("drops a pool word the catalog would correct", function()
-    local pool = test.proseBody()
-    assert.is_falsy(pool:find("weather"))
+  -- The first version assembled a body from a filtered word pool and produced
+  -- "the today is rather", which is not language: the decoder had nothing to
+  -- constrain the parse and split "today" into "to day" on every pass
+  it("uses a whole sentence rather than assembled words", function()
+    local body = test.proseBody()
+    assert.is_truthy(body:find(" "))
+    assert.is_truthy(body:match("^%a[%a%s]+$"))
+  end)
+
+  -- A candidate colliding with the catalog is skipped for the next one, so a
+  -- body that comes back wrong means the recogniser and nothing else
+  it("skips a sentence whose words the catalog would correct", function()
+    assert.equals("let me check on something first", test.proseBody())
+    CATALOG.commands[#CATALOG.commands + 1] = { word = "check", priority = 3 }
+    assert.equals("that sounds good to me", test.proseBody())
+    CATALOG.commands[#CATALOG.commands] = nil
   end)
 
   -- A pattern naming something the game has not published yields nothing
@@ -129,7 +152,7 @@ describe("building a set from the game", function()
   end)
 
   it("includes one message body, to check prose survives the trip", function()
-    assert.is_true(has(test.gamePhrases(), "wiz the today is rather"))
+    assert.is_true(has(test.gamePhrases(), "wiz let me check on something first"))
   end)
 
   it("includes the bare verbs a character says constantly", function()
@@ -150,14 +173,14 @@ describe("building a set from the game", function()
   -- Six ways of saying "beer" is what taking the first match every time
   -- produced in a live run, including "eat beer" and "wear beer"
   it("names different things when there are different things in reach", function()
-    sttpkg.context.inScope = function(opts)
-      if opts.slot == "%item" then return { "lantern", "rope", "flask" } end
-      if opts.slot == "%living" then return { "ironpelt" } end
+    sttpkg.context.names = function(opts)
+      if opts.slot == "%item" then return { "A brass lantern", "A coil of rope", "A glass flask" } end
+      if opts.slot == "%living" then return { "Ironpelt the boar" } end
       return {}
     end
     -- Only the verbs that take an item, so a help topic or a creature cannot
     -- stand in for variety that is not there
-    local ITEM_VERBS = { get = true, eat = true, wear = true }
+    local ITEM_VERBS = { get = true, examine = true, drop = true }
     local items = {}
     for _, phrase in ipairs(test.gamePhrases()) do
       local verb, noun = phrase:match("^(%a+)%s+(%a+)$")
@@ -166,6 +189,17 @@ describe("building a set from the game", function()
     local distinct = 0
     for _ in pairs(items) do distinct = distinct + 1 end
     assert.is_true(distinct > 1)
+  end)
+
+  -- "drink checklist" and "wear clear" came out of a live run. Nothing here can
+  -- know a lantern is inedible, so a verb that does not fit anything is only
+  -- ever asked for bare, where it needs no object to make sense.
+  it("does not pair a verb with an object that makes no sense of it", function()
+    local phrases = test.gamePhrases()
+    for _, phrase in ipairs(phrases) do
+      assert.is_falsy(phrase:match("^eat "), "built a phrase pairing eat with whatever was in reach")
+      assert.is_falsy(phrase:match("^wear "), "built a phrase pairing wear with whatever was in reach")
+    end
   end)
 
   it("honours the limit it is given", function()

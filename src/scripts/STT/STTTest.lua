@@ -302,34 +302,50 @@ end
 -- So the pool is ordinary words, and any that the catalog would consider a
 -- correction candidate are dropped before the body is built. What is left is
 -- prose whose failure means the recogniser and nothing else.
-local PROSE_POOL = { "the", "weather", "today", "is", "rather", "pleasant", "outside" }
-local PROSE_WORDS = 4
+-- Whole sentences, not a pool to assemble from. The first version built a body
+-- by filtering a word list and joining whatever survived, which produced "the
+-- today is rather" - not language, so the decoder had nothing to constrain the
+-- parse and split "today" into "to day" on every single pass. A probe made of
+-- non-language measures how the recogniser copes with non-language.
+--
+-- Ordinary, complete, and short enough to say in one breath. The first one
+-- whose every word is clear of the catalog is used.
+local PROSE_BODIES = {
+  "i will be back in a moment",
+  "let me check on something first",
+  "that sounds good to me",
+  "give me a minute to think",
+}
 
 function test.proseBody()
   local lex = nil
   if mcvp and mcvp.entries and sttpkg.correct and sttpkg.correct.lexicon then
     lex = sttpkg.correct.lexicon(mcvp.entries({ correctable = true }))
   end
-  local words = {}
-  for _, word in ipairs(PROSE_POOL) do
-    -- An exact match is vocabulary; anything the corrector would change is one
-    -- edit from vocabulary. Either way the probe scores the catalog.
-    local tooClose = lex ~= nil and (lex.exact[word] ~= nil or sttpkg.correct.token(word, lex) ~= nil)
-    if not tooClose then
-      words[#words + 1] = word
-      if #words >= PROSE_WORDS then break end
+
+  for _, body in ipairs(PROSE_BODIES) do
+    local clear = true
+    for word in body:gmatch("%a+") do
+      -- An exact match is vocabulary; anything the corrector would change is
+      -- one edit from vocabulary. Either way a failure there could mean the
+      -- catalog rather than the recogniser, and the probe cannot say which.
+      if lex and (lex.exact[word] ~= nil or sttpkg.correct.token(word, lex) ~= nil) then
+        clear = false
+        break
+      end
     end
+    if clear then return body end
   end
-  if #words < 2 then return nil end
-  return table.concat(words, " ")
+  -- Every candidate collides with this game's vocabulary: no honest probe is
+  -- available, so the run does without one rather than carrying a phrase whose
+  -- failure it could not explain.
+  return nil
 end
 
+-- The same answer a run would use, so a pattern filled on its own and a pattern
+-- filled inside a set never disagree about what is standing in the room
 local function firstInScope(slot)
-  if not (sttpkg.context and sttpkg.context.inScope) then return nil end
-  for _, word in ipairs(sttpkg.context.inScope({ slot = slot }) or {}) do
-    if speakable(word) then return word end
-  end
-  return nil
+  return test.slotNouns(slot)[1]
 end
 
 local function firstOfCategory(category)
@@ -374,6 +390,71 @@ function test.fillPattern(syntax, pick)
   return table.concat(out, " ")
 end
 
+-- Verbs whose meaning survives any object being put after them. A pattern
+-- taking no object at all is always safe: nothing can be nonsense about
+-- "help %word" or "kill %living" the way it can about "drink %item".
+local ANY_OBJECT_VERBS = { get = true, take = true, examine = true, look = true, drop = true, put = true }
+
+--- The last word of a display name that is long enough to say: the head noun,
+-- which is what a player reaches for. "A bottle of beer" is asked for as beer,
+-- "a clear crystal" as crystal.
+--
+-- inScope() answers with every content word instead, which is right for what it
+-- is for - binding and biasing want the whole name, since a player may say
+-- either half - but wrong for building a phrase to read aloud. It offered
+-- "clear" as a thing to wear, and "wear clear" came back as "we are clear"
+-- three times out of three.
+function test.headNoun(displayName, slot)
+  -- A creature is asked for by the name it is given, an object by the thing it
+  -- is: "Ironpelt the boar" is killed as ironpelt, "A bottle of beer" is drunk
+  -- as beer. So one takes the first word it can say and the other the last.
+  local first, last = nil, nil
+  for word in tostring(displayName or ""):lower():gmatch("[%a']+") do
+    if speakable(word) then
+      first = first or word
+      last = word
+    end
+  end
+  if slot == "%living" then return first end
+  return last
+end
+
+--- The nouns a slot can be filled with, in the order they were seen. Built from
+-- display names where there are any, so each thing contributes the one word it
+-- is asked for rather than all of them.
+function test.slotNouns(slot)
+  local out, seen = {}, {}
+  local function offer(word)
+    if speakable(word) and not seen[word] then
+      seen[word] = true
+      out[#out + 1] = word
+    end
+  end
+
+  local names = sttpkg.context and sttpkg.context.names
+  if names then
+    for _, name in ipairs(sttpkg.context.names({ slot = slot }) or {}) do
+      offer(test.headNoun(name, slot))
+    end
+  end
+  if #out == 0 and sttpkg.context and sttpkg.context.inScope then
+    -- A game that publishes no display names still has bindable words
+    for _, word in ipairs(sttpkg.context.inScope({ slot = slot }) or {}) do
+      offer(word)
+    end
+  end
+  return out
+end
+
+--- Whether a pattern can be filled with whatever is in reach without producing
+-- a phrase a player would never say.
+function test.carrierVerb(word, syntax)
+  if not (type(syntax) == "string" and syntax:find("%%item")) then
+    return true
+  end
+  return ANY_OBJECT_VERBS[tostring(word):lower()] == true
+end
+
 --- A phrase set built from this game's own vocabulary and what is in reach,
 -- rather than from a fixed list of plausible MUD English.
 --
@@ -407,11 +488,7 @@ function test.gamePhrases(limit)
   local pools, cursors = {}, {}
   local function rotate(slot)
     if not pools[slot] then
-      pools[slot] = {}
-      local inScope = sttpkg.context and sttpkg.context.inScope
-      for _, word in ipairs((inScope and sttpkg.context.inScope({ slot = slot })) or {}) do
-        if speakable(word) then pools[slot][#pools[slot] + 1] = word end
-      end
+      pools[slot] = test.slotNouns(slot)
     end
     local pool = pools[slot]
     if #pool == 0 then return nil end
@@ -422,8 +499,17 @@ function test.gamePhrases(limit)
   -- Patterns first: they carry the nouns, and they are the ones that can fail
   -- to fill, so letting them claim their places before the bare verbs keeps a
   -- run from being all verbs whenever the room is empty.
+  --
+  -- Only verbs that make sense with anything, though. Pairing every %item verb
+  -- with whatever happens to be in reach produced "drink checklist" and "wear
+  -- clear" - phrases nobody would say, which have no language model behind them
+  -- and which the decoder answers with the nearest real English ("we are
+  -- clear", three passes out of three). That scores the absurdity of the phrase
+  -- rather than the game's vocabulary. Nothing here can know a beer is
+  -- drinkable, so the carrier verb is one that fits any noun; the verbs left
+  -- out are covered bare, below, where they need no object to make sense.
   for _, entry in ipairs(mcvp.entries({ category = "commands" }) or {}) do
-    if entry.syntax and speakable(entry.word) then
+    if entry.syntax and speakable(entry.word) and test.carrierVerb(entry.word, entry.syntax) then
       add(test.fillPattern(entry.syntax, rotate))
     end
   end
