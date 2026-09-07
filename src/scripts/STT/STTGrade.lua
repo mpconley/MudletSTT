@@ -50,17 +50,18 @@ end
 
 --- Words the dictionary does not know that sit one edit from a word it does.
 --
--- Mudlet ships Hunspell and exposes it, so this asks a real dictionary rather
--- than a list written from memory: spellCheckWord says whether a word exists,
--- spellSuggestWord says what it would be taken for. A coined command that is
+-- The dictionary is passed in rather than reached for, so the grading stays
+-- pure Lua like the rest of the analysis in this package and a client with a
+-- different speller - or none - needs no change here. Mudlet's Hunspell is
+-- wrapped into that shape by grade.mudletDictionary() further down. A coined command that is
 -- one edit from an ordinary word is the case that fails confidently - the
 -- recogniser has every reason to emit the real word instead.
 --
 -- Not knowing a word is not itself a fault. A game's own nouns are supposed to
 -- be unfamiliar, and that is what biasing is for; only shadowing an everyday
 -- word is reported. Answers word -> what it would be taken for.
-function grade.collisions(words)
-  if type(spellCheckWord) ~= "function" or type(spellSuggestWord) ~= "function" then
+function grade.collisions(words, dictionary)
+  if not (dictionary and dictionary.knows and dictionary.suggest) then
     return {}
   end
   local distance = sttpkg.correct and sttpkg.correct.distance
@@ -70,18 +71,12 @@ function grade.collisions(words)
   for _, word in ipairs(words or {}) do
     local w = lower(word)
     -- Short words are their own class, reported once with advice of their own
-    if #w >= 4 then
-      local known = false
-      pcall(function() known = spellCheckWord(w) == true end)
-      if not known then
-        local suggestions = {}
-        pcall(function() suggestions = spellSuggestWord(w) or {} end)
-        for _, suggestion in ipairs(suggestions) do
-          local other = lower(suggestion)
-          if other ~= w and #other >= 4 and distance(w, other, 1) == 1 then
-            near[w] = other
-            break
-          end
+    if #w >= 4 and not dictionary.knows(w) then
+      for _, suggestion in ipairs(dictionary.suggest(w) or {}) do
+        local other = lower(suggestion)
+        if other ~= w and #other >= 4 and distance(w, other, 1) == 1 then
+          near[w] = other
+          break
         end
       end
     end
@@ -172,14 +167,14 @@ end
 -- Only what makes a word unsayable counts against tier 1: a long word or a
 -- colliding one is still a word somebody can say, and the tier-1 figure is
 -- meant to answer "is the biasing budget being spent on anything reachable".
-function grade.report(entries)
+function grade.report(entries, dictionary)
   entries = entries or grade.catalogWords()
 
   local words = {}
   for _, entry in ipairs(entries) do
     words[#words + 1] = entry.word
   end
-  local neighbours = grade.collisions(words)
+  local neighbours = grade.collisions(words, dictionary)
 
   local found, counts = {}, {}
   for _, class in ipairs(grade.classes) do
@@ -222,6 +217,29 @@ end
 -- holding two hundred words teaches nothing by printing all of them.
 local SHOWN_PER_CLASS = 12
 
+--- Mudlet's Hunspell, wrapped in the shape the analysis asks for. This is the
+-- only place in this module that knows which client it is running in: the
+-- grading itself takes a dictionary and does not care where it came from, so a
+-- client with a different speller supplies its own and everything above works
+-- unchanged.
+function grade.mudletDictionary()
+  if type(spellCheckWord) ~= "function" or type(spellSuggestWord) ~= "function" then
+    return nil
+  end
+  return {
+    knows = function(word)
+      local known = false
+      pcall(function() known = spellCheckWord(word) == true end)
+      return known
+    end,
+    suggest = function(word)
+      local out = {}
+      pcall(function() out = spellSuggestWord(word) or {} end)
+      return out
+    end,
+  }
+end
+
 --- Print the findings.
 function grade.show(limit)
   if not (mcvp and mcvp.entries) then
@@ -229,7 +247,7 @@ function grade.show(limit)
     return false
   end
 
-  local report = grade.report()
+  local report = grade.report(nil, grade.mudletDictionary())
   if report.total == 0 then
     cecho("<orange>[STT] the catalog is empty\n")
     return false
