@@ -44,6 +44,7 @@ describe("words that cannot be spoken at all", function()
   end)
 
   it("allows an onset English does use", function()
+    assert.same({}, problemsOf("ghost"))
     assert.same({}, problemsOf("throw"))
     assert.same({}, problemsOf("gnaw"))
     assert.same({}, problemsOf("write"))
@@ -84,6 +85,20 @@ describe("coined words that shadow real ones", function()
   end)
 
   -- A client with no speller loses this class and keeps every other one
+  -- A speller answers a compound with the words it is made of, and inserting a
+  -- space is one edit - so these passed a distance check and produced 250
+  -- findings against a real catalog, almost all of them this
+  it("ignores a suggestion that is two words", function()
+    local speller = {
+      knows = function() return false end,
+      suggest = function(w)
+        if w == "autogold" then return { "auto gold" } end
+        return {}
+      end,
+    }
+    assert.is_nil(grade.collisions({ "autogold" }, speller)["autogold"])
+  end)
+
   it("does nothing at all without a dictionary", function()
     assert.same({}, grade.collisions({ "dport" }))
     assert.same({}, grade.collisions({ "dport" }, { knows = function() return false end }))
@@ -126,6 +141,24 @@ describe("the report", function()
   it("counts a long word as sayable", function()
     local report = grade.report({ { word = "eviscerate", priority = 1 } })
     assert.equals(1, report.tierOneSayable)
+  end)
+
+  -- "accessibility" is thirteen letters and perfectly ordinary. Flagging it
+  -- told an author to rework a word that was never going to fail.
+  it("does not call a long word unusual when the speller knows it", function()
+    local speller = { knows = function() return true end, suggest = function() return {} end }
+    local report = grade.report({ { word = "accessibility", priority = 1 } }, speller)
+    assert.equals(0, report.counts.long)
+  end)
+
+  -- A word published in two categories is one word. A real report listed
+  -- "ghelp, ghelp" and counted it twice.
+  it("counts a word once however many categories publish it", function()
+    local report = grade.report({
+      { word = "tset", priority = 1 },
+      { word = "tset", priority = 3 },
+    })
+    assert.equals(1, report.counts.impossibleOnset)
   end)
 
   it("gathers each class", function()

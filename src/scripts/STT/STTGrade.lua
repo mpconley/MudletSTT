@@ -36,7 +36,8 @@ local ONSETS = {
   l = true, m = true, n = true, p = true, q = true, r = true, s = true, t = true,
   v = true, w = true, x = true, y = true, z = true,
   bl = true, br = true, ch = true, cl = true, cr = true, dr = true, dw = true,
-  fl = true, fr = true, gl = true, gn = true, gr = true, kn = true, ph = true,
+  fl = true, fr = true, gh = true, gl = true, gn = true, gr = true, kn = true,
+  ph = true,
   pl = true, pr = true, ps = true, qu = true, rh = true, sc = true, sh = true,
   sk = true, sl = true, sm = true, sn = true, sp = true, sq = true, st = true,
   sw = true, th = true, tr = true, tw = true, wh = true, wr = true,
@@ -74,7 +75,14 @@ function grade.collisions(words, dictionary)
     if #w >= 4 and not dictionary.knows(w) then
       for _, suggestion in ipairs(dictionary.suggest(w) or {}) do
         local other = lower(suggestion)
-        if other ~= w and #other >= 4 and distance(w, other, 1) == 1 then
+        -- A speller answers a compound with the words it is made of -
+        -- "autogold" with "auto gold" - and inserting a space is one edit, so
+        -- these sail through a distance check and drowned the class: 250
+        -- findings against a real catalog, almost all of them this. A player
+        -- saying the compound is not at risk of being heard as two words with
+        -- a space in, which is not something a recogniser emits at all.
+        if not other:find("%s") and other ~= w and #other >= 4
+          and distance(w, other, 1) == 1 then
           near[w] = other
           break
         end
@@ -115,7 +123,7 @@ function grade.hasVowel(word)
 end
 
 --- The classes one word falls into, as a set.
-function grade.problems(word, neighbours)
+function grade.problems(word, neighbours, known)
   local w = lower(word)
   local found = {}
   if w == "" then return found end
@@ -141,7 +149,10 @@ function grade.problems(word, neighbours)
   elseif #w <= 2 then
     found.tooShort = true
   end
-  if #w >= 10 then
+  -- Long is only a risk for a word the recogniser has no reason to know.
+  -- "accessibility" is thirteen letters and perfectly ordinary; flagging it
+  -- told an author to rework a word that was never going to fail.
+  if #w >= 10 and (known == nil or known == false) then
     found.long = true
   end
   if neighbours and neighbours[w] then
@@ -170,9 +181,15 @@ end
 function grade.report(entries, dictionary)
   entries = entries or grade.catalogWords()
 
-  local words = {}
+  -- A word published in two categories is one word, and was being counted and
+  -- listed twice - "ghelp, ghelp" in a real report
+  local words, seenWord = {}, {}
   for _, entry in ipairs(entries) do
-    words[#words + 1] = entry.word
+    local w = lower(entry.word)
+    if not seenWord[w] then
+      seenWord[w] = true
+      words[#words + 1] = entry.word
+    end
   end
   local neighbours = grade.collisions(words, dictionary)
 
@@ -182,19 +199,27 @@ function grade.report(entries, dictionary)
     counts[class.key] = 0
   end
 
-  local tierOne, tierOneSayable = 0, 0
+  local tierOne, tierOneSayable, counted = 0, 0, {}
   for _, entry in ipairs(entries) do
-    local problems = grade.problems(entry.word, neighbours)
+    local w = lower(entry.word)
+    local known = nil
+    if dictionary and dictionary.knows then
+      known = dictionary.knows(w)
+    end
+    local problems = grade.problems(entry.word, neighbours, known)
     local unsayable = problems.nonLetters or problems.noVowel
       or problems.impossibleOnset or problems.singleLetter or problems.tooShort
     if entry.priority == 1 then
       tierOne = tierOne + 1
       if not unsayable then tierOneSayable = tierOneSayable + 1 end
     end
-    for key in pairs(problems) do
-      if found[key] then
-        found[key][#found[key] + 1] = entry.word
-        counts[key] = counts[key] + 1
+    if not counted[w] then
+      counted[w] = true
+      for key in pairs(problems) do
+        if found[key] then
+          found[key][#found[key] + 1] = entry.word
+          counts[key] = counts[key] + 1
+        end
       end
     end
   end
@@ -241,6 +266,11 @@ function grade.mudletDictionary()
 end
 
 --- Print the findings.
+--
+-- "stt vocab all" prints every word rather than a sample, unstyled and plain,
+-- because the reason to want all of them is to paste them somewhere else -
+-- into an issue, or in front of something that can suggest replacements. A
+-- truncated list is a summary; the whole list is the working material.
 function grade.show(limit)
   if not (mcvp and mcvp.entries) then
     cecho("<orange>[STT] no vocabulary to grade - this game publishes no catalog\n")
@@ -253,7 +283,8 @@ function grade.show(limit)
     return false
   end
 
-  limit = tonumber(limit) or SHOWN_PER_CLASS
+  local everything = (tostring(limit):lower() == "all")
+  limit = everything and math.huge or (tonumber(limit) or SHOWN_PER_CLASS)
   cecho(string.format("<white>[STT] vocabulary: %d words, %d in tier 1\n", report.total, report.tierOne))
 
   if report.tierOne > 0 then
@@ -276,13 +307,22 @@ function grade.show(limit)
       for i = 1, math.min(#words, limit) do
         local word = words[i]
         local near = report.neighbours[word:lower()]
-        shown[#shown + 1] = (class.key == "collides" and near) and (word .. "/" .. near) or word
+        shown[#shown + 1] = (class.key == "collides" and near) and (word .. " -> " .. near) or word
       end
-      cecho("<light_slate_gray>  " .. table.concat(shown, ", "))
-      if #words > limit then
-        cecho(string.format(" <light_slate_gray>... and %d more", #words - limit))
+      if everything then
+        -- One per line and no colour: what gets pasted stays readable, and
+        -- nothing has to be untangled from a wrapped comma-separated run
+        for _, entry in ipairs(shown) do
+          echo("  " .. entry .. "\n")
+        end
+      else
+        cecho("<light_slate_gray>  " .. table.concat(shown, ", "))
+        if #words > limit then
+          cecho(string.format(" <light_slate_gray>... and %d more <white>(stt vocab all)", #words - limit))
+        end
+        cecho("\n")
       end
-      cecho("\n<light_slate_gray>  " .. class.advice .. "\n")
+      cecho("<light_slate_gray>  " .. class.advice .. "\n")
     end
   end
 
