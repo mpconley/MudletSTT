@@ -292,9 +292,37 @@ local function speakable(word)
 end
 
 -- A body has to be prose the catalog does not contain, or the phrase scores
--- vocabulary again by accident. Fixed rather than drawn from anywhere, so it
--- reads the same in every run and across games.
-local PROSE_BODY = "hello there everyone"
+-- vocabulary again by accident. Not enough on its own, though: the first
+-- version of this used "hello there everyone", and StickMUD has a social
+-- called hallo - so a body coming back as "hallo there everyone" could not be
+-- told apart from prose being corrupted, when the decoder had simply heard a
+-- word that is genuinely ambiguous. A probe has to be far from the catalog
+-- acoustically, not merely absent from it.
+--
+-- So the pool is ordinary words, and any that the catalog would consider a
+-- correction candidate are dropped before the body is built. What is left is
+-- prose whose failure means the recogniser and nothing else.
+local PROSE_POOL = { "the", "weather", "today", "is", "rather", "pleasant", "outside" }
+local PROSE_WORDS = 4
+
+function test.proseBody()
+  local lex = nil
+  if mcvp and mcvp.entries and sttpkg.correct and sttpkg.correct.lexicon then
+    lex = sttpkg.correct.lexicon(mcvp.entries({ correctable = true }))
+  end
+  local words = {}
+  for _, word in ipairs(PROSE_POOL) do
+    -- An exact match is vocabulary; anything the corrector would change is one
+    -- edit from vocabulary. Either way the probe scores the catalog.
+    local tooClose = lex ~= nil and (lex.exact[word] ~= nil or sttpkg.correct.token(word, lex) ~= nil)
+    if not tooClose then
+      words[#words + 1] = word
+      if #words >= PROSE_WORDS then break end
+    end
+  end
+  if #words < 2 then return nil end
+  return table.concat(words, " ")
+end
 
 local function firstInScope(slot)
   if not (sttpkg.context and sttpkg.context.inScope) then return nil end
@@ -315,16 +343,19 @@ end
 --- Fill a syntax pattern with words that are actually here, or nil when a slot
 -- cannot be filled. A pattern naming something the game has not published
 -- yields nothing rather than a phrase with a hole in it.
-function test.fillPattern(syntax)
+function test.fillPattern(syntax, pick)
   if type(syntax) ~= "string" then return nil end
+  pick = pick or firstInScope
   local out = {}
   for token in syntax:gmatch("%S+") do
     if token:sub(1, 1) ~= "%" then
       out[#out + 1] = token
     elseif token == "%text" then
-      out[#out + 1] = PROSE_BODY
+      local body = test.proseBody()
+      if not body then return nil end
+      out[#out + 1] = body
     elseif token == "%item" or token == "%living" then
-      local word = firstInScope(token)
+      local word = pick(token)
       if not word then return nil end
       out[#out + 1] = word
     elseif token == "%direction" then
@@ -369,19 +400,38 @@ function test.gamePhrases(limit)
     end
   end
 
+  -- Rotate through what is in reach rather than naming the same thing in every
+  -- phrase. Taking the first match each time produced a run that was six ways
+  -- of saying "beer", including "eat beer" and "wear beer" - phrases nobody
+  -- would say, whose failures score the absurdity rather than the vocabulary.
+  local pools, cursors = {}, {}
+  local function rotate(slot)
+    if not pools[slot] then
+      pools[slot] = {}
+      local inScope = sttpkg.context and sttpkg.context.inScope
+      for _, word in ipairs((inScope and sttpkg.context.inScope({ slot = slot })) or {}) do
+        if speakable(word) then pools[slot][#pools[slot] + 1] = word end
+      end
+    end
+    local pool = pools[slot]
+    if #pool == 0 then return nil end
+    cursors[slot] = (cursors[slot] or 0) + 1
+    return pool[((cursors[slot] - 1) % #pool) + 1]
+  end
+
   -- Patterns first: they carry the nouns, and they are the ones that can fail
   -- to fill, so letting them claim their places before the bare verbs keeps a
   -- run from being all verbs whenever the room is empty.
   for _, entry in ipairs(mcvp.entries({ category = "commands" }) or {}) do
     if entry.syntax and speakable(entry.word) then
-      add(test.fillPattern(entry.syntax))
+      add(test.fillPattern(entry.syntax, rotate))
     end
   end
 
   -- One message body, whichever command carries the first %text pattern
   for _, entry in ipairs(mcvp.entries({ category = "channels" }) or {}) do
     if entry.syntax and entry.syntax:find("%%text") and speakable(entry.word) then
-      add(test.fillPattern(entry.syntax))
+      add(test.fillPattern(entry.syntax, rotate))
       break
     end
   end

@@ -17,6 +17,10 @@ _G.registerAnonymousEventHandler = function() return "handler" end
 _G.killAnonymousEventHandler = function() end
 _G.tempTimer = function() return 1 end
 
+-- STTCorrect too: the pool filtering asks the corrector whether a probe word
+-- is close to vocabulary, and without it loaded that check silently answers
+-- "no" for everything - so the spec would pass while the filter did nothing.
+dofile("src/scripts/STT/STTCorrect.lua")
 dofile("src/scripts/STT/STTTest.lua")
 
 local test = sttpkg.test
@@ -28,6 +32,11 @@ local CATALOG = {
   commands = {
     { word = "kill", syntax = "kill %living", priority = 1 },
     { word = "get", syntax = "get %item", priority = 1 },
+    -- Several patterns taking the same slot, as the real catalog has: get,
+    -- eat, wear, open and drink all name an item, and taking the first match
+    -- for each is what produced six ways of saying "beer"
+    { word = "eat", syntax = "eat %item", priority = 1 },
+    { word = "wear", syntax = "wear %item", priority = 1 },
     { word = "help", syntax = "help %word", priority = 3 },
     { word = "where", syntax = "where %player", priority = 3 },
     { word = "cast", syntax = "cast %spell", priority = 1 },
@@ -35,6 +44,10 @@ local CATALOG = {
     { word = "score", priority = 1 },
     { word = "ab", priority = 1 },
     { word = "wizlock", priority = 3 },
+    -- StickMUD really does have this as a command, which is what makes the
+    -- pool filtering worth having: a probe word that is also vocabulary scores
+    -- the catalog rather than the recogniser
+    { word = "weather", priority = 3 },
   },
   channels = {
     { word = "wiz", syntax = "wiz %text", priority = 2 },
@@ -85,7 +98,16 @@ describe("filling a pattern from what is here", function()
   end)
 
   it("puts prose where the message goes", function()
-    assert.equals("wiz hello there everyone", test.fillPattern("wiz %text"))
+    assert.equals("wiz the today is rather", test.fillPattern("wiz %text"))
+  end)
+
+  -- The first version of the pool was "hello there everyone", against a game
+  -- with a social called hallo: a body coming back wrong could then mean the
+  -- prose was corrupted or that the decoder heard a genuinely ambiguous word,
+  -- and the run could not say which
+  it("drops a pool word the catalog would correct", function()
+    local pool = test.proseBody()
+    assert.is_falsy(pool:find("weather"))
   end)
 
   -- A pattern naming something the game has not published yields nothing
@@ -107,7 +129,7 @@ describe("building a set from the game", function()
   end)
 
   it("includes one message body, to check prose survives the trip", function()
-    assert.is_true(has(test.gamePhrases(), "wiz hello there everyone"))
+    assert.is_true(has(test.gamePhrases(), "wiz the today is rather"))
   end)
 
   it("includes the bare verbs a character says constantly", function()
@@ -123,6 +145,27 @@ describe("building a set from the game", function()
   -- prefer the abbreviation to the word it abbreviates
   it("leaves the abbreviations out", function()
     assert.is_false(has(test.gamePhrases(), "ab"))
+  end)
+
+  -- Six ways of saying "beer" is what taking the first match every time
+  -- produced in a live run, including "eat beer" and "wear beer"
+  it("names different things when there are different things in reach", function()
+    sttpkg.context.inScope = function(opts)
+      if opts.slot == "%item" then return { "lantern", "rope", "flask" } end
+      if opts.slot == "%living" then return { "ironpelt" } end
+      return {}
+    end
+    -- Only the verbs that take an item, so a help topic or a creature cannot
+    -- stand in for variety that is not there
+    local ITEM_VERBS = { get = true, eat = true, wear = true }
+    local items = {}
+    for _, phrase in ipairs(test.gamePhrases()) do
+      local verb, noun = phrase:match("^(%a+)%s+(%a+)$")
+      if verb and ITEM_VERBS[verb] then items[noun] = true end
+    end
+    local distinct = 0
+    for _ in pairs(items) do distinct = distinct + 1 end
+    assert.is_true(distinct > 1)
   end)
 
   it("honours the limit it is given", function()
