@@ -77,6 +77,15 @@ function sttpkg.ui.refresh(state)
   -- The pulse is the toolbar's refinement, and refuses on a command with no
   -- button, so its answer is not worth acting on
   setCommandPulse(sttpkg.ui.commandId, listening, "#22aa44", "#116622", 700)
+  -- An open microphone has to stay stoppable from wherever the player goes.
+  -- Pinning shows this control in whichever window they are in, whatever
+  -- profile that window is showing - and only while it is listening, so two
+  -- games open still means one Speech button the rest of the time. Guarded
+  -- because a Mudlet without the call is simply one where the button stays
+  -- with its own profile.
+  if type(setCommandPinned) == "function" then
+    setCommandPinned(sttpkg.ui.commandId, listening)
+  end
 
   local tooltip = "Toggle speech recognition"
   if listening then

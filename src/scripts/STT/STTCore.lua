@@ -431,10 +431,17 @@ function sttpkg.enable()
 end
 
 function sttpkg.disable()
-  if sttpkg.bridgeAvailable() and stt.listening() then
-    stt.stop()
+  if not (sttpkg.bridgeAvailable() and stt.listening()) then return end
+  -- Announced only if it happened. stt.listening() is this profile's own
+  -- answer on a Mudlet that tracks who holds the microphone, but on an older
+  -- one it is the shared engine's - so a profile that holds nothing could
+  -- reach here, have its stop refused, and report a stop it never made while
+  -- another game carried on listening.
+  local stopped = stt.stop()
+  if stopped then
     cecho("<light_slate_gray>[STT] stopped\n")
   end
+  return stopped
 end
 
 function sttpkg.toggle()
@@ -633,6 +640,15 @@ function sttpkg.setup()
       if focused or not sttpkg.listening() then return end
       sttpkg.disable()
       cecho("<orange>[STT] Stopped listening - this profile is no longer in front.\n")
+    end),
+    -- Another profile asked for the microphone and this session is over. The
+    -- state change that follows says only that listening stopped, which looks
+    -- exactly like a stop this profile asked for - so without this the player
+    -- watches their microphone close for no reason they can see. Older Mudlets
+    -- never raise it and lose nothing.
+    handover = registerAnonymousEventHandler("sysSTTHandover", function(_, tookIt)
+      sttpkg.ui.refresh()
+      cecho("<orange>[STT] Stopped listening - " .. tostring(tookIt) .. " took the microphone.\n")
     end),
     -- Every profile hears this one, so each stops its own microphone; a
     -- Mudlet without the event simply never fires it and nothing changes.
