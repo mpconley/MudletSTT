@@ -127,21 +127,72 @@ function correct.commandCase(text)
   return correct.lowerFirst(text)
 end
 
+-- The closed set of slot classes MCVP defines. A pattern using anything else
+-- is unparseable, and the standard is explicit that a client meeting one MUST
+-- apply no slot correction for that entry rather than guessing - which is what
+-- makes a future addition a non-event for a client this old.
+local SLOT_CLASSES = {
+  ["%living"] = true,
+  ["%item"] = true,
+  ["%player"] = true,
+  ["%direction"] = true,
+  ["%word"] = true,
+  ["%text"] = true,
+}
+
+--- Where a pattern stops being vocabulary and becomes the player's own words,
+-- as a 1-based token index, or nil for a pattern with no prose in it.
+--
+-- "say %text" answers 2, so everything after the verb is left alone. "tell
+-- %player %text" answers 3, keeping the name correctable and walling off only
+-- the message. The boundary comes from the pattern and never from guessing at
+-- whitespace, which is why a game publishing no pattern gets no boundary.
+function correct.proseFrom(syntax)
+  if type(syntax) ~= "string" then return nil end
+  local index, prose = 0, nil
+  for token in syntax:gmatch("%S+") do
+    index = index + 1
+    if token:sub(1, 1) == "%" then
+      if not SLOT_CLASSES[token] then return nil end
+      if token == "%text" then prose = index end
+    end
+  end
+  return prose
+end
+
 --- Correct a phrase: the first token against the leading lexicon (command
 -- words), every later token against the argument lexicon (targets, items).
 -- Either lexicon may be nil to skip that position. Returns the corrected
 -- text and how many tokens changed.
+--
+-- A message body is never touched. Once the leading word is known, its syntax
+-- pattern says where the player's own words begin, and nothing from there on
+-- is a correction candidate. Without this, "wiz say hello" had its last word
+-- matched against the whole argument lexicon and came out as "wiz say hallo",
+-- because hallo is a social - so the client rewrote what the player said, on a
+-- channel, in front of everyone reading it.
 function correct.apply(text, leadingLex, argumentLex)
-  local out, count, index = {}, 0, 0
+  local out, count, index, proseFrom = {}, 0, 0, nil
   for token in tostring(text or ""):gmatch("%S+") do
     index = index + 1
-    local lex = (index == 1) and leadingLex or argumentLex
-    local fixed = lex and correct.token(token, lex) or nil
-    if fixed then
-      count = count + 1
-      out[#out + 1] = fixed
-    else
+    if proseFrom and index >= proseFrom then
       out[#out + 1] = token
+    else
+      local lex = (index == 1) and leadingLex or argumentLex
+      local fixed = lex and correct.token(token, lex) or nil
+      if fixed then
+        count = count + 1
+        out[#out + 1] = fixed
+      else
+        out[#out + 1] = token
+      end
+      -- Read from the corrected word rather than the spoken one: a channel
+      -- name misheard and put right is still a channel, and its message body
+      -- has to be protected on the strength of what it turned out to be.
+      if index == 1 and leadingLex then
+        local entry = leadingLex.exact[(fixed or token):lower()]
+        proseFrom = entry and correct.proseFrom(entry.syntax) or nil
+      end
     end
   end
   return table.concat(out, " "), count
