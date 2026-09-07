@@ -318,27 +318,33 @@ local PROSE_BODIES = {
 }
 
 function test.proseBody()
-  local lex = nil
-  if mcvp and mcvp.entries and sttpkg.correct and sttpkg.correct.lexicon then
-    lex = sttpkg.correct.lexicon(mcvp.entries({ correctable = true }))
+  -- Against the words the decoder is steered toward, not against everything the
+  -- corrector knows. Correction never runs inside a %text span - that is what
+  -- the span is for - so a body word being near a correctable word cannot
+  -- change the body. What can change it is the recogniser preferring a word it
+  -- was biased toward, and that list is a few hundred words rather than a few
+  -- thousand. Checked the wrong way round, every candidate collided with a
+  -- 2109-word catalog and a run quietly went out with no body phrase at all.
+  local biased = {}
+  if sttpkg.biasWords then
+    for _, word in ipairs(sttpkg.biasWords() or {}) do
+      biased[tostring(word):lower()] = true
+    end
   end
 
   for _, body in ipairs(PROSE_BODIES) do
     local clear = true
     for word in body:gmatch("%a+") do
-      -- An exact match is vocabulary; anything the corrector would change is
-      -- one edit from vocabulary. Either way a failure there could mean the
-      -- catalog rather than the recogniser, and the probe cannot say which.
-      if lex and (lex.exact[word] ~= nil or sttpkg.correct.token(word, lex) ~= nil) then
+      if biased[word] then
         clear = false
         break
       end
     end
     if clear then return body end
   end
-  -- Every candidate collides with this game's vocabulary: no honest probe is
-  -- available, so the run does without one rather than carrying a phrase whose
-  -- failure it could not explain.
+  -- Every candidate names something the decoder is being steered toward, so no
+  -- honest probe is available. The caller says so rather than a run quietly
+  -- going out one phrase short.
   return nil
 end
 
@@ -515,10 +521,15 @@ function test.gamePhrases(limit)
   end
 
   -- One message body, whichever command carries the first %text pattern
-  for _, entry in ipairs(mcvp.entries({ category = "channels" }) or {}) do
-    if entry.syntax and entry.syntax:find("%%text") and speakable(entry.word) then
-      add(test.fillPattern(entry.syntax, rotate))
-      break
+  local body = test.proseBody()
+  if not body then
+    cecho("<orange>[STT] no message-body phrase: every candidate names a word the decoder is biased toward\n")
+  else
+    for _, entry in ipairs(mcvp.entries({ category = "channels" }) or {}) do
+      if entry.syntax and entry.syntax:find("%%text") and speakable(entry.word) then
+        add(test.fillPattern(entry.syntax, rotate))
+        break
+      end
     end
   end
 

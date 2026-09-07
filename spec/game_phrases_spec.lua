@@ -80,6 +80,10 @@ before_each(function()
       return out
     end,
   }
+  -- The body is checked against what the decoder is steered toward, not against
+  -- the whole catalog: correction never runs inside a %text span, so only
+  -- biasing can change a body
+  sttpkg.biasWords = function() return { "kill", "get", "examine" } end
   sttpkg.context = {
     names = function(opts)
       if opts.slot == "%item" then return { "A brass lantern" } end
@@ -106,9 +110,7 @@ describe("filling a pattern from what is here", function()
   end)
 
   it("puts prose where the message goes", function()
-    -- Not the first candidate: this catalog has "kill", which is one edit from
-    -- "will", so the first sentence is rejected exactly as intended
-    assert.equals("wiz let me check on something first", test.fillPattern("wiz %text"))
+    assert.equals("wiz i will be back in a moment", test.fillPattern("wiz %text"))
   end)
 
   -- The first version of the pool was "hello there everyone", against a game
@@ -126,11 +128,18 @@ describe("filling a pattern from what is here", function()
 
   -- A candidate colliding with the catalog is skipped for the next one, so a
   -- body that comes back wrong means the recogniser and nothing else
-  it("skips a sentence whose words the catalog would correct", function()
+  -- Checked against the bias list alone. Against the whole catalog every
+  -- candidate collided on a real game - 2109 correctable words - and a run
+  -- went out with no body phrase and nothing said about it
+  it("skips a sentence naming a word the decoder is steered toward", function()
+    assert.equals("i will be back in a moment", test.proseBody())
+    sttpkg.biasWords = function() return { "moment" } end
     assert.equals("let me check on something first", test.proseBody())
-    CATALOG.commands[#CATALOG.commands + 1] = { word = "check", priority = 3 }
-    assert.equals("that sounds good to me", test.proseBody())
-    CATALOG.commands[#CATALOG.commands] = nil
+  end)
+
+  it("answers nothing when every candidate is biased toward", function()
+    sttpkg.biasWords = function() return { "moment", "check", "sounds", "minute" } end
+    assert.is_nil(test.proseBody())
   end)
 
   -- A pattern naming something the game has not published yields nothing
@@ -152,7 +161,7 @@ describe("building a set from the game", function()
   end)
 
   it("includes one message body, to check prose survives the trip", function()
-    assert.is_true(has(test.gamePhrases(), "wiz let me check on something first"))
+    assert.is_true(has(test.gamePhrases(), "wiz i will be back in a moment"))
   end)
 
   it("includes the bare verbs a character says constantly", function()
