@@ -6,6 +6,12 @@
 -- recognition success would be inventing precision nobody has measured, and it
 -- would be acted on.
 --
+-- What it cannot see: a word that is real but rare sitting beside a word that
+-- is real and common - "hallo" against a player saying "hello". Separating
+-- those needs word frequency, which neither Mudlet's dictionary nor this
+-- package has; Hunspell answers whether a word exists, not how often anyone
+-- says it. That case is left uncovered rather than guessed at.
+--
 -- Static analysis of the catalog, so what it can say is bounded. It can say a
 -- word has no English pronunciation; it cannot say whether a recogniser has
 -- met a word before. The classes are drawn conservatively for that reason -
@@ -13,13 +19,6 @@
 -- merely unusual are left alone, since unusual game words are exactly what
 -- biasing exists to rescue.
 --
--- One class was built and then removed: words sitting one edit from ordinary
--- English, which is how "hallo" catches a player saying "hello". Deciding that
--- needs to know what counts as an ordinary word, and a short hand-written list
--- cannot - anything missing from it reads as game-specific, so the first run
--- against a real catalog advised renaming get, kill, look and map, which
--- measure perfect in practice. It is worth having with a real frequency list
--- behind it and worth nothing without one.
 --
 -- sttpkg.vocab is the bpe.vocab derivation and unrelated; this is sttpkg.grade.
 -- @module sttpkg.grade
@@ -45,6 +44,51 @@ local ONSETS = {
   str = true, thr = true,
 }
 
+local function lower(word)
+  return tostring(word or ""):lower()
+end
+
+--- Words the dictionary does not know that sit one edit from a word it does.
+--
+-- Mudlet ships Hunspell and exposes it, so this asks a real dictionary rather
+-- than a list written from memory: spellCheckWord says whether a word exists,
+-- spellSuggestWord says what it would be taken for. A coined command that is
+-- one edit from an ordinary word is the case that fails confidently - the
+-- recogniser has every reason to emit the real word instead.
+--
+-- Not knowing a word is not itself a fault. A game's own nouns are supposed to
+-- be unfamiliar, and that is what biasing is for; only shadowing an everyday
+-- word is reported. Answers word -> what it would be taken for.
+function grade.collisions(words)
+  if type(spellCheckWord) ~= "function" or type(spellSuggestWord) ~= "function" then
+    return {}
+  end
+  local distance = sttpkg.correct and sttpkg.correct.distance
+  if not distance then return {} end
+
+  local near = {}
+  for _, word in ipairs(words or {}) do
+    local w = lower(word)
+    -- Short words are their own class, reported once with advice of their own
+    if #w >= 4 then
+      local known = false
+      pcall(function() known = spellCheckWord(w) == true end)
+      if not known then
+        local suggestions = {}
+        pcall(function() suggestions = spellSuggestWord(w) or {} end)
+        for _, suggestion in ipairs(suggestions) do
+          local other = lower(suggestion)
+          if other ~= w and #other >= 4 and distance(w, other, 1) == 1 then
+            near[w] = other
+            break
+          end
+        end
+      end
+    end
+  end
+  return near
+end
+
 --- Every class this can find, in the order a report shows them.
 grade.classes = {
   { key = "nonLetters", title = "carry characters that cannot be spoken",
@@ -59,13 +103,12 @@ grade.classes = {
   { key = "tooShort", title = "are two letters or fewer",
     advice = "A recogniser prefers the word an abbreviation stands for. "
       .. "Biasing already refuses to steer toward these." },
+  { key = "collides", title = "are not words, and sit one edit from one that is",
+    advice = "The recogniser knows the real word and has every reason to emit it instead, so these fail as "
+      .. "confidently wrong commands rather than obvious ones. Renaming the game's side fixes it." },
   { key = "long", title = "are long and unusual",
     advice = "Biasing reweights what the decoder already considered and cannot add a word the beam never held." },
 }
-
-local function lower(word)
-  return tostring(word or ""):lower()
-end
 
 --- The consonants a word opens with; "" when it opens with a vowel.
 function grade.onset(word)
@@ -77,7 +120,7 @@ function grade.hasVowel(word)
 end
 
 --- The classes one word falls into, as a set.
-function grade.problems(word)
+function grade.problems(word, neighbours)
   local w = lower(word)
   local found = {}
   if w == "" then return found end
@@ -106,6 +149,9 @@ function grade.problems(word)
   if #w >= 10 then
     found.long = true
   end
+  if neighbours and neighbours[w] then
+    found.collides = true
+  end
   return found
 end
 
@@ -129,6 +175,12 @@ end
 function grade.report(entries)
   entries = entries or grade.catalogWords()
 
+  local words = {}
+  for _, entry in ipairs(entries) do
+    words[#words + 1] = entry.word
+  end
+  local neighbours = grade.collisions(words)
+
   local found, counts = {}, {}
   for _, class in ipairs(grade.classes) do
     found[class.key] = {}
@@ -137,7 +189,7 @@ function grade.report(entries)
 
   local tierOne, tierOneSayable = 0, 0
   for _, entry in ipairs(entries) do
-    local problems = grade.problems(entry.word)
+    local problems = grade.problems(entry.word, neighbours)
     local unsayable = problems.nonLetters or problems.noVowel
       or problems.impossibleOnset or problems.singleLetter or problems.tooShort
     if entry.priority == 1 then
@@ -162,6 +214,7 @@ function grade.report(entries)
     tierOneSayable = tierOneSayable,
     found = found,
     counts = counts,
+    neighbours = neighbours,
   }
 end
 
@@ -203,7 +256,9 @@ function grade.show(limit)
       cecho(string.format("\n<yellow>%d %s\n", #words, class.title))
       local shown = {}
       for i = 1, math.min(#words, limit) do
-        shown[#shown + 1] = words[i]
+        local word = words[i]
+        local near = report.neighbours[word:lower()]
+        shown[#shown + 1] = (class.key == "collides" and near) and (word .. "/" .. near) or word
       end
       cecho("<light_slate_gray>  " .. table.concat(shown, ", "))
       if #words > limit then

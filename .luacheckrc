@@ -22,6 +22,8 @@ read_globals = {
   -- The addon command API, which replaced the split toolbar/menu functions
   "addCommand", "removeCommand", "enableCommand", "disableCommand",
   "setCommandChecked", "setCommandIcon", "setCommandTooltip", "setCommandPulse",
+  -- Mudlet's Hunspell bindings, used to tell a coined command from a real word
+  "spellCheckWord", "spellSuggestWord",
   "setCommandPinned",
   "stt", "mcvp",
   -- Set by Mudlet for alias and trigger scripts

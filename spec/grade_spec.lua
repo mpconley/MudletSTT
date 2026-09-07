@@ -50,6 +50,46 @@ describe("words that cannot be spoken at all", function()
   end)
 end)
 
+describe("coined words that shadow real ones", function()
+  -- Mudlet ships Hunspell and exposes it, so the dictionary is real rather
+  -- than a list written from memory. Stubbed here the way Mudlet answers.
+  before_each(function()
+    local KNOWN = { test = true, set = true, port = true, gate = true, ironpelt = false }
+    _G.spellCheckWord = function(w) return KNOWN[w] == true end
+    _G.spellSuggestWord = function(w)
+      if w == "tset" then return { "test", "set" } end
+      if w == "dport" then return { "port" } end
+      if w == "ironpelt" then return { "interpret" } end
+      -- A real word Hunspell would still offer neighbours for, so the guard
+      -- that skips known words is actually exercised rather than assumed
+      if w == "test" then return { "text" } end
+      return {}
+    end
+  end)
+
+  it("names what a coined command would be taken for", function()
+    local near = grade.collisions({ "dport" })
+    assert.equals("port", near["dport"])
+  end)
+
+  -- A game's own nouns are supposed to be unfamiliar; that is what biasing is
+  -- for. Only shadowing an everyday word is worth reporting.
+  it("says nothing about a game word that resembles nothing", function()
+    local near = grade.collisions({ "ironpelt" })
+    assert.is_nil(near["ironpelt"])
+  end)
+
+  it("says nothing about a word the dictionary knows", function()
+    local near = grade.collisions({ "test" })
+    assert.is_nil(near["test"])
+  end)
+
+  it("does nothing at all where Mudlet has no dictionary", function()
+    _G.spellCheckWord = nil
+    assert.same({}, grade.collisions({ "dport" }))
+  end)
+end)
+
 describe("words too short to survive", function()
   it("separates a single letter from a pair", function()
     assert.is_true(problemsOf("a").singleLetter)
