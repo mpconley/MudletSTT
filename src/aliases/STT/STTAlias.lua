@@ -137,6 +137,10 @@ elseif sub == "test" then
     -- is too few to tell a real difference from the spread between runs
     sttpkg.test.start(tonumber(rest))
   end
+elseif sub == "vocab" then
+  -- For a game author reworking a catalog: which of their words can be spoken
+  -- at all, and what the biasing budget is currently being spent on
+  sttpkg.grade.show(tonumber(rest))
 elseif sub == "model" and rest ~= "" and rest ~= nil then
   local name, err = sttpkg.useModel(rest)
   if name then
@@ -190,6 +194,7 @@ else
   stt test scope [n]   score phrases naming what is in this room and inventory
   stt test game [n]    score phrases from this game's own catalog and what is in reach
   stt test repeat [n]  run the last built set again, so two runs compare
+  stt vocab [n]    grade this game's vocabulary for how well it can be spoken
   stt model <name> load a different installed model, to compare them
   stt bias on|off  bias the decoder toward the game's vocabulary (measure it)
   stt models       list installed speech models
