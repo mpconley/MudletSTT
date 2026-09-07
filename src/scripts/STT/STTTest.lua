@@ -281,6 +281,130 @@ function test.scopePhrases(limit)
   return phrases
 end
 
+-- Short forms are abbreviations rather than words, and a recogniser steered
+-- toward one prefers it to the word it abbreviates - the same reason biasing
+-- leaves them out. A phrase set is also spoken aloud by a person, so anything
+-- that is not plainly letters has no business in it.
+local MIN_SPOKEN_LENGTH = 3
+
+local function speakable(word)
+  return type(word) == "string" and #word >= MIN_SPOKEN_LENGTH and word:find("^%a+$") ~= nil
+end
+
+-- A body has to be prose the catalog does not contain, or the phrase scores
+-- vocabulary again by accident. Fixed rather than drawn from anywhere, so it
+-- reads the same in every run and across games.
+local PROSE_BODY = "hello there everyone"
+
+local function firstInScope(slot)
+  if not (sttpkg.context and sttpkg.context.inScope) then return nil end
+  for _, word in ipairs(sttpkg.context.inScope({ slot = slot }) or {}) do
+    if speakable(word) then return word end
+  end
+  return nil
+end
+
+local function firstOfCategory(category)
+  if not (mcvp and mcvp.entries) then return nil end
+  for _, entry in ipairs(mcvp.entries({ category = category }) or {}) do
+    if speakable(entry.word) then return entry.word end
+  end
+  return nil
+end
+
+--- Fill a syntax pattern with words that are actually here, or nil when a slot
+-- cannot be filled. A pattern naming something the game has not published
+-- yields nothing rather than a phrase with a hole in it.
+function test.fillPattern(syntax)
+  if type(syntax) ~= "string" then return nil end
+  local out = {}
+  for token in syntax:gmatch("%S+") do
+    if token:sub(1, 1) ~= "%" then
+      out[#out + 1] = token
+    elseif token == "%text" then
+      out[#out + 1] = PROSE_BODY
+    elseif token == "%item" or token == "%living" then
+      local word = firstInScope(token)
+      if not word then return nil end
+      out[#out + 1] = word
+    elseif token == "%direction" then
+      local word = firstOfCategory("directions")
+      if not word then return nil end
+      out[#out + 1] = word
+    elseif token == "%word" then
+      local word = firstOfCategory("helptopics")
+      if not word then return nil end
+      out[#out + 1] = word
+    else
+      -- %player, or a class this client does not know: unfillable
+      return nil
+    end
+  end
+  return table.concat(out, " ")
+end
+
+--- A phrase set built from this game's own vocabulary and what is in reach,
+-- rather than from a fixed list of plausible MUD English.
+--
+-- The fixed list is deliberately free of words that vary by dialect, so it
+-- scores the recogniser rather than a dictionary - but it also names almost
+-- nothing any particular game has, which means biasing has little to rescue
+-- and its effect is mostly invisible to a run. This set is the other way
+-- round: tier-1 verbs are the short words recognisers actually lose, filled
+-- patterns name what is standing in front of the character, and one message
+-- body checks that prose survives the trip untouched.
+--
+-- Opt-in, and returned rather than stored, because a set drawn from a room
+-- changes when the character walks: two runs of different sets are not a
+-- comparison, and comparing settings is the entire purpose of this harness.
+function test.gamePhrases(limit)
+  limit = tonumber(limit) or 10
+  if not (mcvp and mcvp.entries) then return {} end
+
+  local phrases, seen = {}, {}
+  local function add(text)
+    if text and text ~= "" and not seen[text] and #phrases < limit then
+      seen[text] = true
+      phrases[#phrases + 1] = text
+    end
+  end
+
+  -- Patterns first: they carry the nouns, and they are the ones that can fail
+  -- to fill, so letting them claim their places before the bare verbs keeps a
+  -- run from being all verbs whenever the room is empty.
+  for _, entry in ipairs(mcvp.entries({ category = "commands" }) or {}) do
+    if entry.syntax and speakable(entry.word) then
+      add(test.fillPattern(entry.syntax))
+    end
+  end
+
+  -- One message body, whichever command carries the first %text pattern
+  for _, entry in ipairs(mcvp.entries({ category = "channels" }) or {}) do
+    if entry.syntax and entry.syntax:find("%%text") and speakable(entry.word) then
+      add(test.fillPattern(entry.syntax))
+      break
+    end
+  end
+
+  -- Then the bare verbs a character says constantly. maxPriority 1 is the tier
+  -- the catalog reserves for exactly those.
+  for _, entry in ipairs(mcvp.entries({ category = "commands", maxPriority = 1 }) or {}) do
+    if not entry.syntax and speakable(entry.word) then
+      add(entry.word)
+    end
+  end
+
+  add(firstOfCategory("directions"))
+  return phrases
+end
+
+--- The last set built from the game or the room, or nil when only the fixed
+-- list has been run. What makes a second run a comparison rather than a
+-- different question.
+function test.lastPhrases()
+  return test._lastPhrases
+end
+
 --- Begin a run. Recognised text is scored instead of reaching the game, so a
 -- test can be run while connected without playing the character.
 function test.start(passes, phrases)
@@ -291,7 +415,17 @@ function test.start(passes, phrases)
   if not sttpkg.ensureInit() then return false end
 
   passes = math.max(1, math.floor(tonumber(passes) or 1))
-  test._run = { index = 1, pass = 1, passes = passes, phrases = phrases or test.phrases,
+  local set = phrases or test.phrases
+  -- Kept so "stt test repeat" can ask the same question twice. Only a built
+  -- set is worth remembering; the fixed list is always available by name.
+  if phrases then
+    test._lastPhrases = set
+    cecho("<light_slate_gray>[STT] phrase set for this run:\n")
+    for i, phrase in ipairs(set) do
+      cecho(string.format("<light_slate_gray>  %d. %s\n", i, phrase))
+    end
+  end
+  test._run = { index = 1, pass = 1, passes = passes, phrases = set,
                 scores = {}, wasListening = sttpkg.listening() }
   if not test._run.wasListening then
     sttpkg.enable()

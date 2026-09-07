@@ -101,6 +101,27 @@ elseif sub == "test" then
     if not sttpkg.test.stop() then
       cecho("<light_slate_gray>[STT] no test is running\n")
     end
+  elseif rest and rest:find("^game") then
+    -- Phrases from this game's own catalog and what is in reach. Opt-in: a set
+    -- drawn from a room is not comparable with the fixed list, nor with a set
+    -- drawn from a different room, so it must never replace either silently.
+    local passes = tonumber(rest:match("game%s+(%d+)"))
+    local phrases = sttpkg.test.gamePhrases()
+    if #phrases == 0 then
+      cecho("<orange>[STT] no game vocabulary to build phrases from - this game may not publish a catalog\n")
+    else
+      sttpkg.test.start(passes, phrases)
+    end
+  elseif rest and rest:find("^repeat") then
+    -- The same words again, so two runs are a comparison rather than two
+    -- different questions asked of the same recogniser
+    local passes = tonumber(rest:match("repeat%s+(%d+)"))
+    local phrases = sttpkg.test.lastPhrases()
+    if not phrases then
+      cecho("<orange>[STT] no earlier phrase set to repeat - run stt test game or stt test scope first\n")
+    else
+      sttpkg.test.start(passes, phrases)
+    end
   elseif rest and rest:find("^scope") then
     -- Phrases naming what is actually in this room and inventory, which is
     -- the only way to measure whether biasing toward them helps
@@ -167,6 +188,8 @@ else
   stt focus stop|keep    whether to stop listening when Mudlet loses focus
   stt test [n]     score recognition against set phrases, n passes (stt test stop)
   stt test scope [n]   score phrases naming what is in this room and inventory
+  stt test game [n]    score phrases from this game's own catalog and what is in reach
+  stt test repeat [n]  run the last built set again, so two runs compare
   stt model <name> load a different installed model, to compare them
   stt bias on|off  bias the decoder toward the game's vocabulary (measure it)
   stt models       list installed speech models
