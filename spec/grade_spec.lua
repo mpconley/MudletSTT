@@ -132,6 +132,40 @@ describe("coined words that shadow real ones", function()
   end)
 end)
 
+describe("words that are two words run together", function()
+  local SPELLER = {
+    knows = function(w) return w == "gate" end,
+    suggest = function(w)
+      if w == "autogold" then return { "auto gold" } end
+      if w == "archtoggle" then return { "arch-toggle" } end
+      -- Separated, but not this word's letters: "cat tail" recomposes to
+      -- cattail, which is not canttail
+      if w == "canttail" then return { "cat tail" } end
+      if w == "ironpelt" then return { "interpret" } end
+      return {}
+    end,
+  }
+
+  it("answers with the separated spelling", function()
+    assert.equals("auto gold", grade.compounds({ "autogold" }, SPELLER)["autogold"])
+  end)
+
+  it("reads a hyphen as a separator like a space", function()
+    assert.equals("arch toggle", grade.compounds({ "archtoggle" }, SPELLER)["archtoggle"])
+  end)
+
+  -- Only an exact recomposition counts. "cattail" is a different word that
+  -- happens to be one edit away, not canttail with a space in it.
+  it("ignores a suggestion that is not the same letters", function()
+    assert.is_nil(grade.compounds({ "canttail" }, SPELLER)["canttail"])
+    assert.is_nil(grade.compounds({ "ironpelt" }, SPELLER)["ironpelt"])
+  end)
+
+  it("says nothing without a dictionary", function()
+    assert.same({}, grade.compounds({ "autogold" }))
+  end)
+end)
+
 describe("words too short to survive", function()
   it("separates a single letter from a pair", function()
     assert.is_true(problemsOf("a").singleLetter)

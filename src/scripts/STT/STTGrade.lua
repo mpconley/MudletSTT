@@ -91,6 +91,10 @@ function grade.collisions(words, dictionary)
         -- catalog sails through a distance check. 214 findings against a real
         -- catalog were mostly this. No recogniser emits a separator as a
         -- mishearing, so none of them is a collision.
+        -- The same letters with a separator put in is not a collision: it is
+        -- the speller saying this is two words run together. That is a finding
+        -- of its own, with a fix of its own, so it is carried out separately
+        -- rather than discarded - see grade.compounds().
         if not candidate and not other:find("[%s%-]") and #other >= 4
           and distance(w, other, 1) == 1 then
           candidate = other
@@ -100,6 +104,35 @@ function grade.collisions(words, dictionary)
     end
   end
   return near
+end
+
+--- Words that are two words run together, answered as the spelling that
+-- separates them. A speller offers "auto gold" for "autogold" and "arch
+-- toggle" for "archtoggle", and it is right: a player says two words and a
+-- recogniser hears two words, whatever the catalog spells them as.
+--
+-- Tested by taking the separator back out rather than by edit distance, so
+-- only an exact recomposition counts - "auto gold" is autogold and "ability
+-- monitor" is abilitymonitor, while "arch tail" against "cattail" is not.
+function grade.compounds(words, dictionary)
+  local split = {}
+  if not (dictionary and dictionary.knows and dictionary.suggest) then
+    return split
+  end
+
+  for _, word in ipairs(words or {}) do
+    local w = lower(word)
+    if #w >= 6 and not w:find("[%s%-]") and not dictionary.knows(w) then
+      for _, suggestion in ipairs(dictionary.suggest(w) or {}) do
+        local other = lower(suggestion)
+        if other:find("[%s%-]") and other:gsub("[%s%-]", "") == w then
+          split[w] = (other:gsub("%-", " "))
+          break
+        end
+      end
+    end
+  end
+  return split
 end
 
 --- Every class this can find, in the order a report shows them.
@@ -119,6 +152,10 @@ grade.classes = {
   { key = "collides", title = "are not words, and sit one edit from one that is",
     advice = "The recogniser knows the real word and has every reason to emit it instead, so these fail as "
       .. "confidently wrong commands rather than obvious ones. Renaming the game's side fixes it." },
+  { key = "compound", title = "are two words run together",
+    advice = "A player says two words and a recogniser hears two words, whatever the catalog spells them as. "
+      .. "MCVP entries may hold a space - this game's own help topics already do - so publishing the "
+      .. "separated spelling makes each of these sayable without changing what the parser accepts." },
   { key = "long", title = "are long and unusual",
     advice = "Biasing reweights what the decoder already considered and cannot add a word the beam never held." },
 }
@@ -133,7 +170,7 @@ function grade.hasVowel(word)
 end
 
 --- The classes one word falls into, as a set.
-function grade.problems(word, neighbours, known)
+function grade.problems(word, neighbours, known, splits)
   local w = lower(word)
   local found = {}
   if w == "" then return found end
@@ -170,6 +207,9 @@ function grade.problems(word, neighbours, known)
   if neighbours and neighbours[w] then
     found.collides = true
   end
+  if splits and splits[w] then
+    found.compound = true
+  end
   return found
 end
 
@@ -204,6 +244,7 @@ function grade.report(entries, dictionary)
     end
   end
   local neighbours = grade.collisions(words, dictionary)
+  local splits = grade.compounds(words, dictionary)
 
   local found, counts = {}, {}
   for _, class in ipairs(grade.classes) do
@@ -218,7 +259,7 @@ function grade.report(entries, dictionary)
     if dictionary and dictionary.knows then
       known = dictionary.knows(w)
     end
-    local problems = grade.problems(entry.word, neighbours, known)
+    local problems = grade.problems(entry.word, neighbours, known, splits)
     local unsayable = problems.nonLetters or problems.noVowel
       or problems.impossibleOnset or problems.singleLetter or problems.tooShort
     if entry.priority == 1 then
@@ -247,6 +288,7 @@ function grade.report(entries, dictionary)
     found = found,
     counts = counts,
     neighbours = neighbours,
+    splits = splits,
   }
 end
 
@@ -319,7 +361,14 @@ function grade.show(limit)
       for i = 1, math.min(#words, limit) do
         local word = words[i]
         local near = report.neighbours[word:lower()]
-        shown[#shown + 1] = (class.key == "collides" and near) and (word .. " -> " .. near) or word
+        local split = report.splits[word:lower()]
+        if class.key == "collides" and near then
+          shown[#shown + 1] = word .. " -> " .. near
+        elseif class.key == "compound" and split then
+          shown[#shown + 1] = word .. " -> " .. split
+        else
+          shown[#shown + 1] = word
+        end
       end
       if everything then
         -- One per line and no colour: what gets pasted stays readable, and
