@@ -232,30 +232,33 @@ function sttpkg.biasWords(limit)
   -- them kept, and the budget itself is not the constraint - 25 words and 600
   -- words score identically, so MAX_BIAS_WORDS is nowhere near dilution.
   --
-  -- What the budget is spent on decides whether biasing helps at all, and it
-  -- can hurt. Two measurements, same engine and same score:
+  -- Biasing earns its place, and what it buys is the leading command verb.
+  -- Measured on StickMUD with "stt test game" and "stt test repeat": one
+  -- phrase set, one room, one session, three passes each way, biasing the only
+  -- thing changed.
   --
-  --   a recording whose phrases the decoder got wrong - heartwood, ironpelt,
-  --   gnome - biasing took 7 word errors to 2
+  --   biasing on    20/30 exact, 13% word error rate, 4 first words lost
+  --   biasing off   20/30 exact, 19% word error rate, 7 first words lost
   --
-  --   a live session whose phrases it mostly got right - look, north,
-  --   inventory, get sword - biasing took 70% exact to 60%, and first-word
-  --   losses from 1 to 7 in thirty utterances
+  -- The exact counts are identical, which is why this took so long to see: a
+  -- run scored on exact matches alone says biasing does nothing. The whole
+  -- effect is in the words either side of the failures. Phrases opening with a
+  -- catalog word are where it lands - "shout ..." failed 2 of 3 with biasing
+  -- and 3 of 3 without, and the unbiased failures are the verb being destroyed
+  -- outright: "shall i be bark", "abo be bark", "i kill be bark". Phrases with
+  -- no catalog word at the front score the same either way.
   --
-  -- Turning biasing on also switches sherpa from greedy decoding to modified
-  -- beam search, but that is not what does the damage: beam search with the
-  -- score set to nothing scores exactly as greedy does. It is the reweighting
-  -- itself, and it perturbs words that were already right.
+  -- Two earlier measurements recorded here said biasing hurt. Both were taken
+  -- against phrase sets that named almost nothing this game has - "get sword",
+  -- "kill goblin" - so the biasing list had nothing in the run to rescue and
+  -- could only perturb. They measured the wrong thing rather than the wrong
+  -- way round, which is what "stt test game" exists to stop.
   --
-  -- So the sentence that stood here before any of this was measured - that
-  -- most of the catalog is "commands the recogniser already gets right", and
-  -- spending the budget on them is what made biasing measure worse than no
-  -- biasing - was closer to right than the correction that replaced it. The
-  -- correction was drawn from the one recording where those verbs happened to
-  -- be missed, and generalised from it. Both are true of their own recording;
-  -- neither generalises. Which words are worth the budget depends on which
-  -- ones this speaker and this game actually lose, which is what
-  -- "stt test scope" is for.
+  -- What biasing cannot do is add a word the decoder never considered. It
+  -- reweights paths inside the beam, so a word heard as something acoustically
+  -- unrelated stays lost however much it is boosted - "eviscerate" comes back
+  -- as "accory" whether it is in the list or not. Those need a better model,
+  -- not a bigger budget.
   if sttpkg.context and sttpkg.context.inScope then
     for _, word in ipairs(sttpkg.context.inScope()) do
       offer(word)
