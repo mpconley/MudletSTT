@@ -99,6 +99,33 @@ describe("coined words that shadow real ones", function()
     assert.is_nil(grade.collisions({ "autogold" }, speller)["autogold"])
   end)
 
+  -- A speller joins a compound's parts with a hyphen as readily as a space,
+  -- and one character inserted is one edit either way
+  it("ignores a suggestion that is hyphenated", function()
+    local speller = {
+      knows = function() return false end,
+      suggest = function(w)
+        if w == "backstab" then return { "back-stab" } end
+        return {}
+      end,
+    }
+    assert.is_nil(grade.collisions({ "backstab" }, speller)["backstab"])
+  end)
+
+  -- A speller rejects a proper noun in lower case and answers with the word
+  -- itself, properly capitalised. Taking the next suggestion instead reported
+  -- "french" as "drench".
+  it("treats a word the speller only wants capitalised as known", function()
+    local speller = {
+      knows = function() return false end,
+      suggest = function(w)
+        if w == "french" then return { "French", "drench" } end
+        return {}
+      end,
+    }
+    assert.is_nil(grade.collisions({ "french" }, speller)["french"])
+  end)
+
   it("does nothing at all without a dictionary", function()
     assert.same({}, grade.collisions({ "dport" }))
     assert.same({}, grade.collisions({ "dport" }, { knows = function() return false end }))
@@ -159,6 +186,13 @@ describe("the report", function()
       { word = "tset", priority = 3 },
     })
     assert.equals(1, report.counts.impossibleOnset)
+  end)
+
+  -- A help topic is allowed to be a phrase, and "deep gnome" is two ordinary
+  -- words rather than one long unusual one
+  it("does not call a phrase a long word", function()
+    local report = grade.report({ { word = "deep gnome", priority = 3 } })
+    assert.equals(0, report.counts.long)
   end)
 
   it("gathers each class", function()

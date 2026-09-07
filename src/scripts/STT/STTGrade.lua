@@ -73,20 +73,30 @@ function grade.collisions(words, dictionary)
     local w = lower(word)
     -- Short words are their own class, reported once with advice of their own
     if #w >= 4 and not dictionary.knows(w) then
+      local candidate = nil
       for _, suggestion in ipairs(dictionary.suggest(w) or {}) do
         local other = lower(suggestion)
-        -- A speller answers a compound with the words it is made of -
-        -- "autogold" with "auto gold" - and inserting a space is one edit, so
-        -- these sail through a distance check and drowned the class: 250
-        -- findings against a real catalog, almost all of them this. A player
-        -- saying the compound is not at risk of being heard as two words with
-        -- a space in, which is not something a recogniser emits at all.
-        if not other:find("%s") and other ~= w and #other >= 4
-          and distance(w, other, 1) == 1 then
-          near[w] = other
+        if other == w then
+          -- The speller's own answer is the word back again, differing only in
+          -- case: a proper noun it will not accept lowercased. The word is
+          -- real, so nothing here applies - and without this the next
+          -- suggestion was taken instead, which is how "french" was reported
+          -- as "drench" and "necro" as something worse.
+          candidate = nil
           break
         end
+        -- A speller answers a compound with the words it is made of, joined by
+        -- a space or a hyphen - "autogold" with "auto gold" or "auto-gold" -
+        -- and inserting one character is one edit, so every compound in a
+        -- catalog sails through a distance check. 214 findings against a real
+        -- catalog were mostly this. No recogniser emits a separator as a
+        -- mishearing, so none of them is a collision.
+        if not candidate and not other:find("[%s%-]") and #other >= 4
+          and distance(w, other, 1) == 1 then
+          candidate = other
+        end
       end
+      near[w] = candidate
     end
   end
   return near
@@ -151,8 +161,10 @@ function grade.problems(word, neighbours, known)
   end
   -- Long is only a risk for a word the recogniser has no reason to know.
   -- "accessibility" is thirteen letters and perfectly ordinary; flagging it
-  -- told an author to rework a word that was never going to fail.
-  if #w >= 10 and (known == nil or known == false) then
+  -- told an author to rework a word that was never going to fail. Nor is a
+  -- phrase a long word: "deep gnome" and "global system" are two ordinary
+  -- ones, and a help topic is allowed to be a phrase.
+  if #w >= 10 and not w:find("%s") and (known == nil or known == false) then
     found.long = true
   end
   if neighbours and neighbours[w] then
