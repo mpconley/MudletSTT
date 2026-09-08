@@ -288,7 +288,17 @@ end
 local MIN_SPOKEN_LENGTH = 3
 
 local function speakable(word)
-  return type(word) == "string" and #word >= MIN_SPOKEN_LENGTH and word:find("^%a+$") ~= nil
+  if not (type(word) == "string" and #word >= MIN_SPOKEN_LENGTH and word:find("^%a+$") ~= nil) then
+    return false
+  end
+  -- And nothing the grader already knows cannot be said. A run that asked for
+  -- "gec" and "priestofc" spent three passes each on words "stt vocab" reports
+  -- statically as unspeakable, and counted their failure against the
+  -- recogniser. Those are a vocabulary finding, not a recognition one.
+  if sttpkg.grade and sttpkg.grade.unsayable and sttpkg.grade.unsayable(word) then
+    return false
+  end
+  return true
 end
 
 -- A body has to be prose the catalog does not contain, or the phrase scores

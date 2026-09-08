@@ -213,6 +213,20 @@ function grade.problems(word, neighbours, known, splits)
   return found
 end
 
+--- Whether a word cannot be spoken at all, by the classes that are certain:
+-- no vowel, an onset English does not use, characters with no pronunciation,
+-- or too short to survive. Needs no dictionary, so anything can ask it.
+--
+-- Used by the quality harness to keep such words out of a spoken test. A run
+-- that asks a player to say "gec" measures nothing about the recogniser - the
+-- word cannot be produced, "stt vocab" says so statically, and its failure
+-- only drags down a number meant to describe recognition.
+function grade.unsayable(word)
+  local problems = grade.problems(word)
+  return (problems.nonLetters or problems.noVowel or problems.impossibleOnset
+    or problems.singleLetter or problems.tooShort) == true
+end
+
 --- Every word the catalog publishes, with the tier it carries.
 function grade.catalogWords()
   local out = {}

@@ -21,6 +21,10 @@ _G.tempTimer = function() return 1 end
 -- is close to vocabulary, and without it loaded that check silently answers
 -- "no" for everything - so the spec would pass while the filter did nothing.
 dofile("src/scripts/STT/STTCorrect.lua")
+-- The builder asks the grader whether a word can be said at all, so a run does
+-- not spend passes on words that are a vocabulary finding rather than a
+-- recognition one
+dofile("src/scripts/STT/STTGrade.lua")
 dofile("src/scripts/STT/STTTest.lua")
 
 local test = sttpkg.test
@@ -209,6 +213,24 @@ describe("building a set from the game", function()
       assert.is_falsy(phrase:match("^eat "), "built a phrase pairing eat with whatever was in reach")
       assert.is_falsy(phrase:match("^wear "), "built a phrase pairing wear with whatever was in reach")
     end
+  end)
+
+  -- A word with no English pronunciation cannot be said, so a spoken run
+  -- learns nothing by asking for it and its failure counts against a number
+  -- meant to describe the recogniser. "stt vocab" reports these statically.
+  --
+  -- Only what is certain is excluded. "gec" is pronounceable - it is simply
+  -- not a word - so it stays, and its failure is a real finding about whether
+  -- that command is usable by voice at all.
+  it("leaves out words that have no pronunciation", function()
+    CATALOG.commands[#CATALOG.commands + 1] = { word = "tset", priority = 1 }
+    CATALOG.commands[#CATALOG.commands + 1] = { word = "tth", priority = 1 }
+    CATALOG.commands[#CATALOG.commands + 1] = { word = "gec", priority = 1 }
+    local phrases = test.gamePhrases(20)
+    for _ = 1, 3 do CATALOG.commands[#CATALOG.commands] = nil end
+    assert.is_false(has(phrases, "tset"))
+    assert.is_false(has(phrases, "tth"))
+    assert.is_true(has(phrases, "gec"))
   end)
 
   it("honours the limit it is given", function()
