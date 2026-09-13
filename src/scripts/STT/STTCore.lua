@@ -336,10 +336,13 @@ end
 -- mode it is actually in, and the state either side of the call says whether
 -- a rebuild ran and died.
 --
--- Returns true when the setting is in force. Otherwise false and why:
+-- Returns true when the setting is in force - the engine took it, or was in
+-- the configured mode before being asked and stayed there. Otherwise false
+-- and why:
 --   "unsupported"  nothing here can tune it - this engine never can, this
---                  Mudlet has no setter, or the refusal left the mode where
---                  it was. Stop offering either way.
+--                  Mudlet has no setter, or the refusal left the mode
+--                  somewhere other than the one asked for. Stop offering
+--                  either way.
 --   "deferred"     it can, but not just now; the core kept the value, which
 --                  is why it reads back, and will build it in at its next
 --                  model load
@@ -363,7 +366,8 @@ function sttpkg.applySensitivity()
   -- a denied microphone leaves it, declines exactly as a busy one does and
   -- says so - and would then be reported as a rebuild that had killed it,
   -- contradicting the engine's own message on the line above.
-  local stateBefore = (stt.getInfo() or {}).state
+  local before = stt.getInfo() or {}
+  local stateBefore = before.state
 
   local wanted = sttpkg.config.sensitivity or "short"
   if stt.setSensitivity(wanted) then
@@ -380,11 +384,21 @@ function sttpkg.applySensitivity()
     return false, "failed"
   end
 
-  -- The engine is in the mode it just refused to enter, so it kept the value
-  -- rather than rejected it. A backend that cannot tune at all leaves this
-  -- where it was - Vosk without the endpointer symbol stores the mode only on
-  -- the way out - and a core too old to report a mode leaves nothing to
-  -- compare, which is not a kept value either.
+  -- Already there before the call, so the refusal moved nothing and the mode
+  -- is not evidence of anything - but it is the mode that was asked for, and
+  -- that is what "in force" means. An engine that can never tune refuses from
+  -- its default exactly like this, and telling that player to wait for a model
+  -- load would promise a change that is not coming. What the engine cannot do
+  -- is answered the next time they ask for a mode it is not already in.
+  if before.sensitivity == wanted then
+    return true
+  end
+
+  -- The mode moved to the one just refused, so the engine kept the value
+  -- rather than rejected it. A backend that cannot tune at all leaves it where
+  -- it was - Vosk without the endpointer symbol stores the mode only on the
+  -- way out - and a core too old to report a mode leaves nothing to compare,
+  -- which is not a kept value either.
   if after.sensitivity == wanted then
     return false, "deferred"
   end

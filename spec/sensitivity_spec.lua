@@ -86,6 +86,17 @@ describe("sttpkg.applySensitivity", function()
     assert.are.equal("deferred", why)
   end)
 
+  -- The readback only means the engine kept what it was handed if the mode
+  -- moved. An engine that can never tune, sitting in the mode the player has
+  -- configured - Vosk without the endpointer symbol answers "default", which
+  -- is also Mudlet's default - refuses without moving anything, and calling
+  -- that "not yet in effect" promises a load that will change nothing.
+  -- The setting is in force: it is the mode the engine is in.
+  it("reports success when the engine was already in the requested mode", function()
+    withEngine({ sensitivityBefore = "short" })
+    assert.is_true(sttpkg.applySensitivity())
+  end)
+
   -- The opposite advice, and the reason "deferred" alone was not enough. An
   -- idle engine rebuilds to change the endpoint rules, and a rebuild that
   -- fails leaves nothing loaded - "takes effect at the next model load" would
