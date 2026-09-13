@@ -101,6 +101,16 @@ elseif sub == "test" then
     if not sttpkg.test.stop() then
       cecho("<light_slate_gray>[STT] no test is running\n")
     end
+  elseif rest and rest:find("^phrases") then
+    -- An explicit list, for asking one question of the recognizer: "score
+    -- guild" against "guild score", say. Semicolons separate phrases; a
+    -- trailing number is the pass count, as for the other forms.
+    local phrases, passes = sttpkg.test.parsePhraseList(rest:match("^phrases%s*(.*)$"))
+    if #phrases == 0 then
+      cecho("<orange>[STT] no phrases given - stt test phrases score guild; guild score 3\n")
+    else
+      sttpkg.test.start(passes, phrases)
+    end
   elseif rest and rest:find("^game") then
     -- Phrases from this game's own catalog and what is in reach. Opt-in: a set
     -- drawn from a room is not comparable with the fixed list, nor with a set
