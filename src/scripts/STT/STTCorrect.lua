@@ -61,11 +61,15 @@ function correct.deapostrophe(word)
 end
 
 function correct.lexicon(entries)
-  local lex = { exact = {}, list = {}, bare = {}, phrases = {}, longest = 1 }
+  -- `size` is every entry the index accepted, which `#list` no longer is: a
+  -- phrase is filed away from the candidate list, and anything reporting how
+  -- much vocabulary correction has to work with must still count it.
+  local lex = { exact = {}, list = {}, bare = {}, phrases = {}, longest = 1, size = 0 }
   for _, entry in ipairs(entries or {}) do
     local word = tostring(entry.word or ""):lower()
     if word ~= "" and not lex.exact[word] then
       lex.exact[word] = entry
+      lex.size = lex.size + 1
       -- Only the first spelling claims a bare form, so "its" cannot be
       -- rewritten to "it's" by a later entry
       local bare = correct.deapostrophe(word)
@@ -250,7 +254,8 @@ end
 -- matches, otherwise the first token against the leading lexicon (command
 -- words); every later token against the argument lexicon (targets, items).
 -- Either lexicon may be nil to skip that position. Returns the corrected
--- text and how many tokens changed.
+-- text and how many catalog words changed, which counts a corrected
+-- multi-word word as the one word it is rather than as its tokens.
 --
 -- A message body is never touched. Once the leading word is known, its syntax
 -- pattern says where the player's own words begin, and nothing from there on

@@ -128,7 +128,7 @@ elseif sub == "test" then
     local passes = tonumber(rest:match("repeat%s+(%d+)"))
     local phrases = sttpkg.test.lastPhrases()
     if not phrases then
-      cecho("<orange>[STT] no earlier phrase set to repeat - run stt test game or stt test scope first\n")
+      cecho("<orange>[STT] no earlier phrase set to repeat - run stt test game, scope or phrases first\n")
     else
       sttpkg.test.start(passes, phrases)
     end
@@ -203,6 +203,7 @@ else
   stt test [n]     score recognition against set phrases, n passes (stt test stop)
   stt test scope [n]   score phrases naming what is in this room and inventory
   stt test game [n]    score phrases from this game's own catalog and what is in reach
+  stt test phrases <a>; <b>; ... [n]   score an explicit list, to compare two wordings
   stt test repeat [n]  run the last built set again, so two runs compare
   stt vocab [n|all]  grade this game's vocabulary for how well it can be spoken
   stt model <name> load a different installed model, to compare them

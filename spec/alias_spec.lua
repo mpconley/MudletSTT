@@ -108,3 +108,20 @@ describe("the stt alias, on test phrases", function()
     assert.is_truthy(out:find("no phrases"))
   end)
 end)
+
+-- The help block is the only place a player who has not read the manual can
+-- find a sub-command. "stt test phrases" was documented in the README and the
+-- manual and missing here, so it was undiscoverable from inside Mudlet.
+describe("the stt alias, on its own help", function()
+  before_each(function()
+    _G.sttpkg = { config = {}, saveConfig = function() end }
+  end)
+
+  it("lists every test sub-command it accepts", function()
+    local said = runAlias("help")
+    assert.is_truthy(said:find("stt test phrases", 1, true))
+    assert.is_truthy(said:find("stt test scope", 1, true))
+    assert.is_truthy(said:find("stt test game", 1, true))
+    assert.is_truthy(said:find("stt test repeat", 1, true))
+  end)
+end)

@@ -318,3 +318,26 @@ describe("a phrase outbidding a token", function()
     assert.equals(2, consumed)
   end)
 end)
+
+-- Phrases are deliberately kept out of lex.list, so anything that reported the
+-- vocabulary's size by counting that list stopped counting multi-word entries.
+-- The status line uses that number to say whether correction has anything to
+-- match against, and a catalog of nothing but phrases would have read
+-- "on (0 words)" while phrase correction was working.
+describe("a lexicon's size", function()
+  it("counts every entry it indexed, phrases included", function()
+    local vocabulary = lex({ "score", "kill", "score guild", "word of recall" })
+    assert.equals(4, vocabulary.size)
+    -- and the candidate list still excludes them, which is why size exists
+    assert.equals(2, #vocabulary.list)
+  end)
+
+  it("counts a duplicate once, as the index does", function()
+    local vocabulary = lex({ "score guild", "score guild", "score" })
+    assert.equals(2, vocabulary.size)
+  end)
+
+  it("is zero for an empty catalog", function()
+    assert.equals(0, lex({}).size)
+  end)
+end)

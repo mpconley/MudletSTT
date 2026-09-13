@@ -498,7 +498,7 @@ end
 function sttpkg.vocabularySize()
   local leading, argument = lexicons()
   if not leading then return nil end
-  return #leading.list + (argument and #argument.list or 0)
+  return leading.size + (argument and argument.size or 0)
 end
 
 --- Recognised text with MCVP correction applied, when enabled and available.
