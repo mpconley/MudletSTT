@@ -194,6 +194,37 @@ describe("a phrase reaching into a message body", function()
     assert.equals("whisper wall hello there", out)
   end)
 
+  -- Reading only the heard first word is not enough either. A mishearing of
+  -- three letters or fewer gets no edit budget, so correct.token returns nil
+  -- for it, the guard finds no entry, and a boundary-less phrase entry goes
+  -- through carrying the body with it: "szy hello wold" came out
+  -- "say hello world", a fluent sentence the player did not say. Accepting a
+  -- phrase asserts the player said its first word, so that word's own boundary
+  -- is the one that has to hold.
+  it("reads the phrase's own first word when the heard one cannot be corrected", function()
+    local leading = lex({ { word = "say", syntax = "say %text" }, { word = "say hello" } })
+    local out = correct.apply("szy hello wold", leading, args)
+    assert.is_falsy(out:find("say hello", 1, true))
+    -- What is left is what the released package does with a command word it
+    -- cannot identify at all, which is a limitation this branch neither
+    -- introduces nor is able to fix: no entry means no boundary.
+    assert.equals("szy hallo world", out)
+  end)
+
+  -- The other source is load-bearing too, on the line where the two disagree:
+  -- token 1 corrects to one word while the phrase starts with another. Neither
+  -- the phrase entry nor its first word carries a pattern here, so only the
+  -- word token 1 actually turned out to be can refuse the match. Without that
+  -- source the phrase is taken and the greeting becomes a social.
+  it("reads the corrected first word when it names a boundary the phrase does not", function()
+    local leading = lex({
+      { word = "shout", syntax = "shout %text" },
+      { word = "shoot arrow" },
+    })
+    local out = correct.apply("shoat arrow hello", leading, args)
+    assert.equals("shout arrow hello", out)
+  end)
+
   it("takes the stricter boundary when both entries name one", function()
     -- "tell %player %text" walls off from token 3; the phrase's own pattern
     -- would allow correction one token further in

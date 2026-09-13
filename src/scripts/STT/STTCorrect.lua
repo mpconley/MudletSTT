@@ -296,14 +296,25 @@ function correct.apply(text, leadingLex, argumentLex)
   -- syntax, keyed by the whole phrase, would never be found.
   if leadingLex and #tokens >= 2 then
     local phrase, consumed = correct.phrase(tokens, leadingLex)
-    -- The lookup takes token 1 as corrected rather than as heard, for the same
-    -- reason the single-token path below does: a command word misheard and put
-    -- right is still that command, and the boundary its pattern declares has
-    -- to hold on the strength of what it turned out to be. Reading the spoken
-    -- form finds no entry for a mishearing, so "whispr wall hello there" took
-    -- no boundary from "whisper %player %text" and had its message rewritten.
-    local firstWord = phrase and (correct.token(tokens[1], leadingLex) or tokens[1])
-    local firstFrom = firstWord and boundaryOf(leadingLex, firstWord) or nil
+    -- Which word begins the line, and so whose boundary the phrase has to
+    -- respect. Never the spoken token on its own: it finds no entry for a
+    -- mishearing, so "whispr wall hello there" took no boundary from
+    -- "whisper %player %text" and had its message rewritten. Two better
+    -- answers, and the stricter of them holds.
+    --
+    -- The phrase's own first word is the first: accepting the phrase asserts
+    -- the player said it, so its pattern is in force by the phrase's own
+    -- claim. Without this, a mishearing too short to earn any edit budget
+    -- left correct.token with nothing to return and the guard with no entry
+    -- to read, and "szy hello wold" came out "say hello world" - a fluent
+    -- sentence the player did not say. Token 1 corrected on its own is the
+    -- second, for the mishearing the phrase did resolve.
+    local firstFrom = nil
+    if phrase then
+      firstFrom = boundaryOf(leadingLex, phrase:match("^%S+"))
+      local heard = boundaryOf(leadingLex, correct.token(tokens[1], leadingLex) or tokens[1])
+      if heard and (not firstFrom or heard < firstFrom) then firstFrom = heard end
+    end
     -- A phrase that reaches at or past token 1's own boundary is spanning
     -- into the player's words: refuse it rather than carry the longer match
     if phrase and not (firstFrom and firstFrom <= consumed) then
