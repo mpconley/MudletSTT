@@ -70,3 +70,58 @@ describe("the stt alias, on sensitivity", function()
     assert.are.equal("long", sttpkg.config.sensitivity)
   end)
 end)
+
+describe("the stt alias, on test phrases", function()
+  local started
+
+  before_each(function()
+    started = nil
+    _G.sttpkg = {
+      config = {},
+      saveConfig = function() end,
+      test = {
+        parsePhraseList = function(text)
+          if text == "score guild; guild score 3" then
+            return { "score guild", "guild score" }, 3
+          end
+          return {}, nil
+        end,
+        start = function(passes, phrases) started = { passes = passes, phrases = phrases } return true end,
+        stop = function() return false end,
+        lastPhrases = function() return nil end,
+        gamePhrases = function() return {} end,
+        scopePhrases = function() return {} end,
+      },
+      grade = { show = function() end },
+    }
+  end)
+
+  it("runs the list it was given, with the pass count", function()
+    runAlias("test phrases score guild; guild score 3")
+    assert.same({ "score guild", "guild score" }, started.phrases)
+    assert.equals(3, started.passes)
+  end)
+
+  it("says so when the list is empty", function()
+    local out = runAlias("test phrases")
+    assert.is_nil(started)
+    assert.is_truthy(out:find("no phrases"))
+  end)
+end)
+
+-- The help block is the only place a player who has not read the manual can
+-- find a sub-command. "stt test phrases" was documented in the README and the
+-- manual and missing here, so it was undiscoverable from inside Mudlet.
+describe("the stt alias, on its own help", function()
+  before_each(function()
+    _G.sttpkg = { config = {}, saveConfig = function() end }
+  end)
+
+  it("lists every test sub-command it accepts", function()
+    local said = runAlias("help")
+    assert.is_truthy(said:find("stt test phrases", 1, true))
+    assert.is_truthy(said:find("stt test scope", 1, true))
+    assert.is_truthy(said:find("stt test game", 1, true))
+    assert.is_truthy(said:find("stt test repeat", 1, true))
+  end)
+end)

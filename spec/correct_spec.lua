@@ -73,6 +73,66 @@ describe("sttpkg.correct", function()
     end)
   end)
 
+  describe("phrase", function()
+    local vocabulary = lex({ "score guild", "resign guild", "word of recall", "kill", "score" })
+
+    it("indexes phrases by word count and records the longest", function()
+      assert.equals(3, vocabulary.longest)
+      assert.is_true(vocabulary.phrases[2].exact["score guild"] ~= nil)
+      assert.is_true(vocabulary.phrases[3].exact["word of recall"] ~= nil)
+      assert.is_nil(vocabulary.phrases[2].exact["kill"])
+    end)
+
+    it("matches an exact phrase and reports the tokens it covers", function()
+      local fixed, consumed = correct.phrase({ "score", "guild", "now" }, vocabulary)
+      assert.equals("score guild", fixed)
+      assert.equals(2, consumed)
+    end)
+
+    it("prefers the longest phrase", function()
+      local fixed, consumed = correct.phrase({ "word", "of", "recall" }, vocabulary)
+      assert.equals("word of recall", fixed)
+      assert.equals(3, consumed)
+    end)
+
+    it("corrects a near-miss phrase within the joined budget", function()
+      local fixed, consumed = correct.phrase({ "scor", "guild" }, vocabulary)
+      assert.equals("score guild", fixed)
+      assert.equals(2, consumed)
+    end)
+
+    it("refuses a tie between phrases", function()
+      local ambiguous = lex({ "score guild", "scare guild" })
+      local fixed, consumed = correct.phrase({ "scire", "guild" }, ambiguous)
+      assert.is_nil(fixed)
+      assert.equals(0, consumed)
+    end)
+
+    it("returns nothing when no phrase fits", function()
+      local fixed, consumed = correct.phrase({ "kill", "goblin" }, vocabulary)
+      assert.is_nil(fixed)
+      assert.equals(0, consumed)
+    end)
+
+    it("returns nothing for a lexicon with no phrases", function()
+      local plain = lex({ "kill", "look" })
+      assert.equals(1, plain.longest)
+      assert.is_nil((correct.phrase({ "kill", "look" }, plain)))
+    end)
+
+    it("never lets a single token be corrected into a phrase", function()
+      -- A phrase is a leading-position unit; as a candidate for one token
+      -- it would manufacture a command in argument position.
+      local mixed = lex({ "score guild", "scoreguil" })
+      -- "scoreguild" is one edit from both; only the single-token
+      -- candidate may win, so the answer is the decoy, never the phrase
+      assert.equals("scoreguil", correct.token("scoreguild", mixed))
+      for _, word in ipairs(mixed.list) do
+        assert.is_nil(word:find(" "), word)
+      end
+    end)
+  end)
+
   describe("lowerFirst", function()
     it("lowercases only the first character", function()
       assert.equals("smile", correct.lowerFirst("Smile"))
@@ -179,5 +239,115 @@ describe("sttpkg.correct", function()
       assert.are.equal("it's", correct.token("its", short))
       assert.are.equal("we're", correct.token("were", short))
     end)
+  end)
+end)
+
+-- A phrase match must never be the reason an unambiguous word changes. Joining
+-- tokens inflates the edit budget: "get chest" is nine characters and earns 2,
+-- where "get" alone earns 0 and "chest" earns 1. Because the phrase attempt
+-- runs before any single-token check, that surplus was enough to rewrite a word
+-- the player said exactly right - against StickMUD's real multi-word help
+-- topics, "get chest" came out "sea chest" and "kill giant" came out
+-- "hill giant".
+describe("a phrase outbidding a token", function()
+  -- A mortal's real leading vocabulary: ordinary Diku verbs alongside the
+  -- multi-word help topics that live in the same catalog.
+  local leading = lex({
+    "get", "kill", "look", "say", "score",
+    "sea chest", "hill giant", "dark elf",
+  })
+  local args = lex({ "chest", "giant", "world" })
+
+  it("leaves a line alone when the phrase would replace an exact first word", function()
+    assert.equals("get chest", (correct.apply("get chest", leading, args)))
+  end)
+
+  it("leaves it alone even when only one edit separates the phrase", function()
+    -- "kill giant" is one edit from "hill giant", and the joined budget is 2,
+    -- so only the exactness of "kill" itself refuses this one.
+    assert.equals("kill giant", (correct.apply("kill giant", leading, args)))
+  end)
+
+  it("caps the joined budget at what the tokens would have had apart", function()
+    -- The cap can only be pinned on a first word the lexicon does not know.
+    -- Asserted on "get chest", this passes with the cap removed, because "get"
+    -- is itself a word and the exact-first-word rule refuses every candidate
+    -- on its own. "see" is not a word here, so that rule stays out of it: the
+    -- joined string earns 2, the tokens earn 0 and 1 apart, and "sea chest" is
+    -- two edits away, so the cap is the only thing that refuses it.
+    assert.is_nil(leading.exact["see"])
+    assert.equals(2, correct.maxDistance(#"see ches"))
+    assert.equals(1, correct.maxDistance(#"see") + correct.maxDistance(#"ches"))
+    assert.equals(2, correct.distance("see ches", "sea chest", 5))
+    assert.is_nil((correct.phrase({ "see", "ches" }, leading)))
+    -- and the inflation the cap exists to undo, on the case that named it
+    assert.equals(2, correct.maxDistance(#"get chest"))
+  end)
+
+  it("still corrects a phrase whose first word is not itself a word", function()
+    local vocabulary = lex({ "score guild", "kill", "score" })
+    local fixed, consumed = correct.phrase({ "scor", "guild" }, vocabulary)
+    assert.equals("score guild", fixed)
+    assert.equals(2, consumed)
+  end)
+
+  it("still corrects a later token of a phrase whose first word is exact", function()
+    -- The rule is about a candidate that would replace token 1, not about any
+    -- fuzzy match on a line whose first word happens to be a real word
+    local vocabulary = lex({ "priest officers", "priest", "say" })
+    local fixed, consumed = correct.phrase({ "priest", "oficers" }, vocabulary)
+    assert.equals("priest officers", fixed)
+    assert.equals(2, consumed)
+  end)
+
+  it("matches a phrase that consumes the whole line", function()
+    local vocabulary = lex({ "score guild", "score", "kill" })
+    local out, count = correct.apply("score guild", vocabulary, args)
+    assert.equals("score guild", out)
+    assert.equals(0, count)
+  end)
+
+  it("prefers an exact shorter phrase over a longer near miss", function()
+    local vocabulary = lex({ "take all", "take all coins", "bake all coins" })
+    local fixed, consumed = correct.phrase({ "take", "all", "coins" }, vocabulary)
+    assert.equals("take all coins", fixed)
+    assert.equals(3, consumed)
+    -- and the exact two-token one wins when the three-token line is a miss
+    fixed, consumed = correct.phrase({ "take", "all", "coinz" }, vocabulary)
+    assert.equals("take all", fixed)
+    assert.equals(2, consumed)
+  end)
+
+  -- Pinned behaviour: a tie at the longest length is not fatal to the whole
+  -- attempt. The fuzzy pass keeps walking down the lengths, so a shorter
+  -- length that matches unambiguously still wins.
+  it("falls through a tie at the longest length to a shorter unambiguous match", function()
+    local vocabulary = lex({ "take all", "take all coins", "bake all coins" })
+    local fixed, consumed = correct.phrase({ "wake", "all", "coins" }, vocabulary)
+    assert.equals("take all", fixed)
+    assert.equals(2, consumed)
+  end)
+end)
+
+-- Phrases are deliberately kept out of lex.list, so anything that reported the
+-- vocabulary's size by counting that list stopped counting multi-word entries.
+-- The status line uses that number to say whether correction has anything to
+-- match against, and a catalog of nothing but phrases would have read
+-- "on (0 words)" while phrase correction was working.
+describe("a lexicon's size", function()
+  it("counts every entry it indexed, phrases included", function()
+    local vocabulary = lex({ "score", "kill", "score guild", "word of recall" })
+    assert.equals(4, vocabulary.size)
+    -- and the candidate list still excludes them, which is why size exists
+    assert.equals(2, #vocabulary.list)
+  end)
+
+  it("counts a duplicate once, as the index does", function()
+    local vocabulary = lex({ "score guild", "score guild", "score" })
+    assert.equals(2, vocabulary.size)
+  end)
+
+  it("is zero for an empty catalog", function()
+    assert.equals(0, lex({}).size)
   end)
 end)
