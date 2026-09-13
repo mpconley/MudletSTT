@@ -292,7 +292,7 @@ local function speakable(word)
   -- A catalog word may be a phrase ("score guild"); each token is judged as
   -- a person would say it. Anything that is not plainly letters, and
   -- anything the grader already knows cannot be said, has no business in a
-  -- spoken test: asking for "gec" measures the vocabulary, not the recognizer.
+  -- spoken test: asking for "gec" measures the vocabulary, not the recogniser.
   local index = 0
   for token in word:gmatch("%S+") do
     index = index + 1

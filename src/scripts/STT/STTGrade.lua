@@ -180,7 +180,7 @@ function grade.problems(word, neighbours, known, splits)
   -- per token; the dictionary classes below stay whole-string, because a
   -- phrase is already exempt from them by design. The length floor binds
   -- a word on its own and a phrase's leading token: "to" inside "say to"
-  -- is part of the phrase's path, not an abbreviation the recognizer could
+  -- is part of the phrase's path, not an abbreviation the recogniser could
   -- be steered toward, so a later token needs only two letters.
   local tokens = {}
   for token in w:gmatch("%S+") do tokens[#tokens + 1] = token end

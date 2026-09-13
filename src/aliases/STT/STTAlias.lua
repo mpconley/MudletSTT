@@ -102,7 +102,7 @@ elseif sub == "test" then
       cecho("<light_slate_gray>[STT] no test is running\n")
     end
   elseif rest and rest:find("^phrases") then
-    -- An explicit list, for asking one question of the recognizer: "score
+    -- An explicit list, for asking one question of the recogniser: "score
     -- guild" against "guild score", say. Semicolons separate phrases; a
     -- trailing number is the pass count, as for the other forms.
     local phrases, passes = sttpkg.test.parsePhraseList(rest:match("^phrases%s*(.*)$"))

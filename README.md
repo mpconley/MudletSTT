@@ -98,7 +98,7 @@ variance.
 **Ask one question at a time.** `stt test phrases score guild; guild score 3`
 runs exactly those two phrases three times each, so a server author deciding
 between two spellings of a command measures that and nothing else. Turn
-correction off first (`stt correct off`) when the recognizer alone is the
+correction off first (`stt correct off`) when the recogniser alone is the
 question, and run the list once with `stt bias on` and once with `stt bias
 off` via `stt test repeat`. Confirm the switch actually took effect before the
 second run - `stt bias on|off` can answer `deferred`, meaning the engine kept
