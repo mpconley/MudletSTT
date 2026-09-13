@@ -1,0 +1,157 @@
+# Notices when the Mudlet-side contract this package is written against moves.
+#
+# The dependency only runs one way: this package consumes Mudlet's stt.* bridge,
+# so Mudlet has no business knowing this repository exists and nothing here can
+# gate a Mudlet build. Watching from this side is what is left, and it is enough
+# - the question it answers is "does a new Mudlet need a new package version?",
+# which is this repository's question to begin with.
+#
+# Weekly rather than daily, and against blob SHAs rather than commits. Mudlet
+# lands dozens of commits a week and almost none touch this API; a daily poll of
+# every commit would have opened four issues in one day while the STT fixes were
+# being written, none of them shipped yet. A blob SHA only moves when the file
+# does.
+name: Watch the Mudlet stt.* contract
+
+on:
+  schedule:
+    # Mondays, early UTC - a week's drift is ready to read at the start of one
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# The issue lookup and the issue creation below are two commands, not one, so
+# two runs overlapping - a Monday cron and someone pressing the button - can
+# both find nothing open and both open one. Serialised rather than cancelled:
+# a run already comparing SHAs has nothing wrong with it and should finish.
+concurrency:
+  group: mudlet-contract-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3.3.0
+
+      - name: Compare the watched paths against Mudlet
+        id: compare
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          baseline=.github/mudlet-contract-baseline.json
+          repo=$(jq -r .repo "$baseline")
+          ref=$(jq -r .ref "$baseline")
+
+          # gh exits non-zero and prints the error body on stdout for every
+          # failure alike, so "the answer is not a SHA" cannot on its own tell a
+          # file that is gone from a rate limit, a 500 or an expired token - and
+          # reporting the second as the first opens an issue saying Mudlet has
+          # deleted its own contract, which is the one wrong answer this whole
+          # workflow exists to avoid. The body carries the status, so it is read
+          # rather than inferred: only a 404 is a missing path, and anything else
+          # is this check failing rather than upstream moving.
+          #
+          # Three attempts before giving up, because the alternative to riding
+          # out a transient is losing the week: the next scheduled look is seven
+          # days away. A run that still cannot get an answer fails loudly rather
+          # than reporting drift it did not see.
+          sha_of() {
+            local watched="$1" attempt answer status
+            for attempt in 1 2 3; do
+              if answer=$(gh api "repos/$repo/contents/$watched?ref=$ref" --jq .sha 2>/dev/null) \
+                 && [[ "$answer" =~ ^[0-9a-f]{40}$ ]]; then
+                printf '%s' "$answer"
+                return 0
+              fi
+              status=$(printf '%s' "$answer" | jq -r '.status // empty' 2>/dev/null || true)
+              # Settled, not transient: retrying a 404 three times just makes the
+              # same request twice more before saying the same thing.
+              if [ "$status" = "404" ]; then
+                return 3
+              fi
+              if [ "$attempt" -lt 3 ]; then
+                sleep $((attempt * 5))
+              fi
+            done
+            echo "::error::could not read $watched from $repo@$ref - HTTP ${status:-unknown}, giving up after 3 attempts" >&2
+            return 1
+          }
+
+          drifted=""
+          # "watched" rather than "path": zsh binds $path to $PATH, so a loop
+          # variable of that name wipes the command search path for anyone who
+          # runs this logic locally to debug it. Actions runs bash, where it is
+          # harmless, which is exactly what makes it a trap worth not setting.
+          # Every path is checked even after the first miss, so one run reports
+          # the whole picture rather than the first thing it tripped over.
+          while read -r watched expected; do
+            actual=$(sha_of "$watched") && found=0 || found=$?
+            if [ "$found" -eq 3 ]; then
+              # A path that has moved or been deleted upstream is drift of the
+              # most interesting kind, so it is reported rather than skipped.
+              drifted="${drifted}- \`$watched\` — **not found upstream any more** (renamed, moved or deleted)"$'\n'
+            elif [ "$found" -ne 0 ]; then
+              exit 1
+            elif [ "$actual" != "$expected" ]; then
+              drifted="${drifted}- \`$watched\` — [see what changed](https://github.com/$repo/commits/$ref/$watched) (baseline \`${expected:0:9}\`, upstream \`${actual:0:9}\`)"$'\n'
+            fi
+          done < <(jq -r '.paths | to_entries[] | "\(.key) \(.value)"' "$baseline")
+
+          release=$(gh api "repos/$repo/releases/latest" --jq .tag_name 2>/dev/null || echo "unknown")
+          {
+            echo "release=$release"
+            echo "drifted<<DRIFT_EOF"
+            echo "$drifted"
+            echo "DRIFT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the drift issue
+        if: steps.compare.outputs.drifted != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRIFTED: ${{ steps.compare.outputs.drifted }}
+          RELEASE: ${{ steps.compare.outputs.release }}
+        run: |
+          set -euo pipefail
+          title="Mudlet's stt.* contract has moved"
+          body=$(cat <<BODY
+          One or more of the Mudlet files this package is written against have changed
+          since the baseline in \`.github/mudlet-contract-baseline.json\`.
+
+          $DRIFTED
+          Latest Mudlet release: \`$RELEASE\`. A change on \`development\` is not
+          necessarily in a release yet, so check which before deciding this package
+          needs a new version.
+
+          **What to do**
+
+          1. Read the linked changes and decide whether this package is affected. Most
+             are not: it re-reads \`stt.getInfo()\` rather than caching, and registers no
+             \`sysSTTCapabilitiesChanged\` handler, so capability changes reach it for free.
+          2. Anything user-visible - a new \`sysSTTError\` this package would print, a
+             return value that changed shape - is worth a line in the release notes even
+             when no code changes.
+          3. Update the SHA for each reviewed path in the baseline file. This issue stays
+             open until they match, and the workflow updates it rather than opening
+             another, so there is never more than one.
+
+          _Raised by \`.github/workflows/mudlet-contract-watch.yml\`._
+          BODY
+          )
+          # Deliberately plain text and not a heredoc-in-a-heredoc: the indentation
+          # above is stripped so the issue reads as prose rather than as a code block.
+          body=$(printf '%s\n' "$body" | sed 's/^          //')
+
+          existing=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+            echo "updated issue #$existing"
+          else
+            gh issue create --title "$title" --body "$body" --label "upstream" || \
+              gh issue create --title "$title" --body "$body"
+          fi
