@@ -329,19 +329,23 @@ end
 -- setting at all. Applied after the model loads, so an engine that rebuilds
 -- to change its endpointing does so once, here, rather than mid-session.
 -- Four outcomes, because the caller has four things to say and the engine's
--- own boolean says only "no". It does return a message alongside, and the two
+-- own boolean says only "no". It does return a message alongside, and the
 -- refusals word it differently - but matching on message text is the kind of
--- coupling that breaks silently when someone rewords a string, so the state
--- around the call is read instead. capabilities.sensitivityTuning answers the
--- permanent question before the attempt; the state before and after answers
--- what the attempt did.
+-- coupling that breaks silently when someone rewords a string, so what the
+-- engine reports about itself is read instead: getInfo().sensitivity is the
+-- mode it is actually in, and the state either side of the call says whether
+-- a rebuild ran and died.
 --
--- Returns true when the setting is in force. Otherwise false and why:
---   "unsupported"  nothing here can tune it - this engine never can, or this
---                  Mudlet has no setter, or it is too old to say which of the
---                  two a refusal was. Stop offering either way.
---   "deferred"     it can, but not just now; the core kept the value and will
---                  build it in at its next model load
+-- Returns true when the setting is in force - the engine took it, or was in
+-- the configured mode before being asked and stayed there. Otherwise false
+-- and why:
+--   "unsupported"  nothing here can tune it - this engine never can, this
+--                  Mudlet has no setter, or the refusal left the mode
+--                  somewhere other than the one asked for. Stop offering
+--                  either way.
+--   "deferred"     it can, but not just now; the core kept the value, which
+--                  is why it reads back, and will build it in at its next
+--                  model load
 --   "failed"       it rebuilt and the rebuild did not come back, leaving the
 --                  engine worse off than before with nothing loaded
 -- The value is saved by the caller either way, so the difference is only in
@@ -352,19 +356,8 @@ function sttpkg.applySensitivity()
     return false, "unsupported"
   end
 
-  -- nil on a core predating the flag, where the two really are indivisible -
-  -- treat that as before rather than promising a retry that may never work
-  local capabilities = (stt.getInfo() or {}).capabilities
-  local canTune = capabilities and capabilities.sensitivityTuning
-  if canTune ~= true then
-    if stt.setSensitivity(sttpkg.config.sensitivity or "short") then
-      return true
-    end
-    return false, "unsupported"
-  end
-
-  -- Read before the attempt, not only after it. sherpa rebuilds the model to
-  -- change its endpoint rules, and it only does that from idle: from anything
+  -- Read before the attempt, not only after it. An engine that rebuilds the
+  -- model to change its endpoint rules only does that from idle: from anything
   -- else it declines and keeps the value for the next load. So a rebuild can
   -- only have run - and only have failed - if the engine was idle going in.
   --
@@ -373,16 +366,43 @@ function sttpkg.applySensitivity()
   -- a denied microphone leaves it, declines exactly as a busy one does and
   -- says so - and would then be reported as a rebuild that had killed it,
   -- contradicting the engine's own message on the line above.
-  local stateBefore = (stt.getInfo() or {}).state
+  local before = stt.getInfo() or {}
+  local stateBefore = before.state
 
-  if stt.setSensitivity(sttpkg.config.sensitivity or "short") then
+  local wanted = sttpkg.config.sensitivity or "short"
+  if stt.setSensitivity(wanted) then
     return true
   end
 
-  if stateBefore == "ready" and (stt.getInfo() or {}).state == "error" then
+  local after = stt.getInfo() or {}
+
+  -- Before the readback, because a rebuild can store the mode on its way down
+  -- and then have nothing left to apply it to. Of the two answers that fit
+  -- that engine, only one avoids sending the player off to wait for a model
+  -- load that is not coming.
+  if stateBefore == "ready" and after.state == "error" then
     return false, "failed"
   end
-  return false, "deferred"
+
+  -- Already there before the call, so the refusal moved nothing and the mode
+  -- is not evidence of anything - but it is the mode that was asked for, and
+  -- that is what "in force" means. An engine that can never tune refuses from
+  -- its default exactly like this, and telling that player to wait for a model
+  -- load would promise a change that is not coming. What the engine cannot do
+  -- is answered the next time they ask for a mode it is not already in.
+  if before.sensitivity == wanted then
+    return true
+  end
+
+  -- The mode moved to the one just refused, so the engine kept the value
+  -- rather than rejected it. A backend that cannot tune at all leaves it where
+  -- it was - Vosk without the endpointer symbol stores the mode only on the
+  -- way out - and a core too old to report a mode leaves nothing to compare,
+  -- which is not a kept value either.
+  if after.sensitivity == wanted then
+    return false, "deferred"
+  end
+  return false, "unsupported"
 end
 
 --- Load a specific installed model by name fragment, so alternatives can be
