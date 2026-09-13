@@ -143,3 +143,51 @@ describe("a leading phrase", function()
     assert.equals("say score guild", out)
   end)
 end)
+
+-- The phrase path read its boundary only from the entry it matched, throwing
+-- away what token 1's own entry said. With both "say" (whose pattern makes the
+-- rest of the line the player's words) and "say hello" in the catalog, the
+-- phrase consumed two tokens, took no boundary from an entry that has none, and
+-- left the message body a correction candidate again - the exact defect the
+-- boundary exists to close.
+describe("a phrase reaching into a message body", function()
+  local args = lex({ { word = "hallo" }, { word = "world" }, { word = "bob" } })
+
+  it("refuses a phrase that spans past the boundary token one set", function()
+    local leading = lex({ { word = "say", syntax = "say %text" }, { word = "say hello" } })
+    local out, count = correct.apply("say hello wold", leading, args)
+    assert.equals("say hello wold", out)
+    assert.equals(0, count)
+  end)
+
+  it("refuses it even when the phrase itself is the near miss", function()
+    -- "say hallo" is one edit from what was heard, and "hallo" is a social:
+    -- accepting the phrase here would rewrite the player's greeting on a channel
+    local leading = lex({ { word = "say", syntax = "say %text" }, { word = "say hallo" } })
+    local out, count = correct.apply("say hello there", leading, args)
+    assert.equals("say hello there", out)
+    assert.equals(0, count)
+  end)
+
+  it("keeps the body of an exact phrase that a longer near miss would have taken", function()
+    local leading = lex({
+      { word = "guild say", syntax = "guild say %text" },
+      { word = "guild sam smith" },
+    })
+    local out, count = correct.apply("guild say smith hallo", leading, args)
+    assert.equals("guild say smith hallo", out)
+    assert.equals(0, count)
+  end)
+
+  it("takes the stricter boundary when both entries name one", function()
+    -- "tell %player %text" walls off from token 3; the phrase's own pattern
+    -- would allow correction one token further in
+    local leading = lex({
+      { word = "tell", syntax = "tell %player %text" },
+      { word = "tell bob", syntax = "tell bob %player %text" },
+    })
+    local out, count = correct.apply("tell bob hello there", leading, args)
+    assert.equals("tell bob hello there", out)
+    assert.equals(0, count)
+  end)
+end)
