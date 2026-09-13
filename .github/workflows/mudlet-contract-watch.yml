@@ -23,6 +23,14 @@ permissions:
   contents: read
   issues: write
 
+# The issue lookup and the issue creation below are two commands, not one, so
+# two runs overlapping - a Monday cron and someone pressing the button - can
+# both find nothing open and both open one. Serialised rather than cancelled:
+# a run already comparing SHAs has nothing wrong with it and should finish.
+concurrency:
+  group: mudlet-contract-watch
+  cancel-in-progress: false
+
 jobs:
   watch:
     runs-on: ubuntu-latest
@@ -39,6 +47,41 @@ jobs:
           repo=$(jq -r .repo "$baseline")
           ref=$(jq -r .ref "$baseline")
 
+          # gh exits non-zero and prints the error body on stdout for every
+          # failure alike, so "the answer is not a SHA" cannot on its own tell a
+          # file that is gone from a rate limit, a 500 or an expired token - and
+          # reporting the second as the first opens an issue saying Mudlet has
+          # deleted its own contract, which is the one wrong answer this whole
+          # workflow exists to avoid. The body carries the status, so it is read
+          # rather than inferred: only a 404 is a missing path, and anything else
+          # is this check failing rather than upstream moving.
+          #
+          # Three attempts before giving up, because the alternative to riding
+          # out a transient is losing the week: the next scheduled look is seven
+          # days away. A run that still cannot get an answer fails loudly rather
+          # than reporting drift it did not see.
+          sha_of() {
+            local watched="$1" attempt answer status
+            for attempt in 1 2 3; do
+              if answer=$(gh api "repos/$repo/contents/$watched?ref=$ref" --jq .sha 2>/dev/null) \
+                 && [[ "$answer" =~ ^[0-9a-f]{40}$ ]]; then
+                printf '%s' "$answer"
+                return 0
+              fi
+              status=$(printf '%s' "$answer" | jq -r '.status // empty' 2>/dev/null || true)
+              # Settled, not transient: retrying a 404 three times just makes the
+              # same request twice more before saying the same thing.
+              if [ "$status" = "404" ]; then
+                return 3
+              fi
+              if [ "$attempt" -lt 3 ]; then
+                sleep $((attempt * 5))
+              fi
+            done
+            echo "::error::could not read $watched from $repo@$ref - HTTP ${status:-unknown}, giving up after 3 attempts" >&2
+            return 1
+          }
+
           drifted=""
           # "watched" rather than "path": zsh binds $path to $PATH, so a loop
           # variable of that name wipes the command search path for anyone who
@@ -47,15 +90,13 @@ jobs:
           # Every path is checked even after the first miss, so one run reports
           # the whole picture rather than the first thing it tripped over.
           while read -r watched expected; do
-            actual=$(gh api "repos/$repo/contents/$watched?ref=$ref" --jq .sha 2>/dev/null || echo "")
-            # A 404 does not leave this empty: gh prints the error body, so the
-            # answer has to be checked for being a SHA rather than for being
-            # non-empty, or a renamed file is reported as having changed to
-            # "{"message" instead of as having gone.
-            if ! [[ "$actual" =~ ^[0-9a-f]{40}$ ]]; then
+            actual=$(sha_of "$watched") && found=0 || found=$?
+            if [ "$found" -eq 3 ]; then
               # A path that has moved or been deleted upstream is drift of the
               # most interesting kind, so it is reported rather than skipped.
               drifted="${drifted}- \`$watched\` — **not found upstream any more** (renamed, moved or deleted)"$'\n'
+            elif [ "$found" -ne 0 ]; then
+              exit 1
             elif [ "$actual" != "$expected" ]; then
               drifted="${drifted}- \`$watched\` — [see what changed](https://github.com/$repo/commits/$ref/$watched) (baseline \`${expected:0:9}\`, upstream \`${actual:0:9}\`)"$'\n'
             fi
