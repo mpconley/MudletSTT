@@ -73,6 +73,66 @@ describe("sttpkg.correct", function()
     end)
   end)
 
+  describe("phrase", function()
+    local vocabulary = lex({ "score guild", "resign guild", "word of recall", "kill", "score" })
+
+    it("indexes phrases by word count and records the longest", function()
+      assert.equals(3, vocabulary.longest)
+      assert.is_true(vocabulary.phrases[2].exact["score guild"] ~= nil)
+      assert.is_true(vocabulary.phrases[3].exact["word of recall"] ~= nil)
+      assert.is_nil(vocabulary.phrases[2].exact["kill"])
+    end)
+
+    it("matches an exact phrase and reports the tokens it covers", function()
+      local fixed, consumed = correct.phrase({ "score", "guild", "now" }, vocabulary)
+      assert.equals("score guild", fixed)
+      assert.equals(2, consumed)
+    end)
+
+    it("prefers the longest phrase", function()
+      local fixed, consumed = correct.phrase({ "word", "of", "recall" }, vocabulary)
+      assert.equals("word of recall", fixed)
+      assert.equals(3, consumed)
+    end)
+
+    it("corrects a near-miss phrase within the joined budget", function()
+      local fixed, consumed = correct.phrase({ "scor", "guild" }, vocabulary)
+      assert.equals("score guild", fixed)
+      assert.equals(2, consumed)
+    end)
+
+    it("refuses a tie between phrases", function()
+      local ambiguous = lex({ "score guild", "scare guild" })
+      local fixed, consumed = correct.phrase({ "scire", "guild" }, ambiguous)
+      assert.is_nil(fixed)
+      assert.equals(0, consumed)
+    end)
+
+    it("returns nothing when no phrase fits", function()
+      local fixed, consumed = correct.phrase({ "kill", "goblin" }, vocabulary)
+      assert.is_nil(fixed)
+      assert.equals(0, consumed)
+    end)
+
+    it("returns nothing for a lexicon with no phrases", function()
+      local plain = lex({ "kill", "look" })
+      assert.equals(1, plain.longest)
+      assert.is_nil((correct.phrase({ "kill", "look" }, plain)))
+    end)
+
+    it("never lets a single token be corrected into a phrase", function()
+      -- A phrase is a leading-position unit; as a candidate for one token
+      -- it would manufacture a command in argument position.
+      local mixed = lex({ "score guild", "scoreguil" })
+      -- "scoreguild" is one edit from both; only the single-token
+      -- candidate may win, so the answer is the decoy, never the phrase
+      assert.equals("scoreguil", correct.token("scoreguild", mixed))
+      for _, word in ipairs(mixed.list) do
+        assert.is_nil(word:find(" "), word)
+      end
+    end)
+  end)
+
   describe("lowerFirst", function()
     it("lowercases only the first character", function()
       assert.equals("smile", correct.lowerFirst("Smile"))

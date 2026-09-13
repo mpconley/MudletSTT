@@ -61,21 +61,38 @@ function correct.deapostrophe(word)
 end
 
 function correct.lexicon(entries)
-  local lex = { exact = {}, list = {}, bare = {} }
+  local lex = { exact = {}, list = {}, bare = {}, phrases = {}, longest = 1 }
   for _, entry in ipairs(entries or {}) do
     local word = tostring(entry.word or ""):lower()
     if word ~= "" and not lex.exact[word] then
       lex.exact[word] = entry
-      lex.list[#lex.list + 1] = word
       -- Only the first spelling claims a bare form, so "its" cannot be
       -- rewritten to "it's" by a later entry
       local bare = correct.deapostrophe(word)
       if bare ~= word and not lex.bare[bare] then
         lex.bare[bare] = word
       end
+      -- A multi-word entry is matched as one unit at the start of a line,
+      -- longest first, so it is filed by how many tokens it covers and kept
+      -- out of the single-token candidate list: as a candidate for one
+      -- token it would manufacture a command phrase in argument position.
+      local count = select(2, word:gsub("%S+", ""))
+      if count < 2 then
+        lex.list[#lex.list + 1] = word
+      else
+        local bucket = lex.phrases[count]
+        if not bucket then
+          bucket = { exact = {}, list = {} }
+          lex.phrases[count] = bucket
+        end
+        bucket.exact[word] = entry
+        bucket.list[#bucket.list + 1] = word
+        if count > lex.longest then lex.longest = count end
+      end
     end
   end
   table.sort(lex.list)
+  for _, bucket in pairs(lex.phrases) do table.sort(bucket.list) end
   return lex
 end
 
@@ -102,6 +119,37 @@ function correct.token(token, lex)
   end
   if best and bestDist <= budget and not tied then return best end
   return nil
+end
+
+--- Match the longest phrase the leading tokens form, exactly or as a unique
+-- near miss within the budget for the joined length. Returns the phrase and
+-- how many tokens it covers, or nil and 0. Only phrases of two or more
+-- tokens live here; a single token is correct.token's job.
+function correct.phrase(tokens, lex)
+  if not (lex and lex.phrases and lex.longest and lex.longest >= 2) then
+    return nil, 0
+  end
+  for count = math.min(lex.longest, #tokens), 2, -1 do
+    local bucket = lex.phrases[count]
+    if bucket then
+      local joined = table.concat(tokens, " ", 1, count):lower()
+      if bucket.exact[joined] then return joined, count end
+      local budget = correct.maxDistance(#joined)
+      if budget > 0 then
+        local best, bestDist, tied = nil, budget + 1, false
+        for _, phrase in ipairs(bucket.list) do
+          local d = correct.distance(joined, phrase, budget)
+          if d < bestDist then
+            best, bestDist, tied = phrase, d, false
+          elseif d == bestDist and d <= budget and phrase ~= best then
+            tied = true
+          end
+        end
+        if best and bestDist <= budget and not tied then return best, count end
+      end
+    end
+  end
+  return nil, 0
 end
 
 --- Lowercase the first character. Recognisers that produce natural prose
