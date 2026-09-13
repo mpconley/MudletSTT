@@ -261,8 +261,9 @@ end
 --
 -- The invariant that keeps the phrase path from undoing that: a phrase is
 -- never accepted when it would cross a boundary token 1 has already
--- established. Token 1's own entry is consulted whatever the phrase matched,
--- and if its pattern puts the player's words at or before where the phrase
+-- established. Token 1's own entry - found from the corrected spelling of that
+-- token, not the spoken one - is consulted whatever the phrase matched, and if
+-- its pattern puts the player's words at or before where the phrase
 -- ends, the phrase is reaching into prose - it is refused and the line falls
 -- through to the single-token path, which walls the body off correctly. A
 -- catalog holding both "say" (pattern "say %text") and "say hello" is the
@@ -290,7 +291,14 @@ function correct.apply(text, leadingLex, argumentLex)
   -- syntax, keyed by the whole phrase, would never be found.
   if leadingLex and #tokens >= 2 then
     local phrase, consumed = correct.phrase(tokens, leadingLex)
-    local firstFrom = phrase and boundaryOf(leadingLex, tokens[1]) or nil
+    -- The lookup takes token 1 as corrected rather than as heard, for the same
+    -- reason the single-token path below does: a command word misheard and put
+    -- right is still that command, and the boundary its pattern declares has
+    -- to hold on the strength of what it turned out to be. Reading the spoken
+    -- form finds no entry for a mishearing, so "whispr wall hello there" took
+    -- no boundary from "whisper %player %text" and had its message rewritten.
+    local firstWord = phrase and (correct.token(tokens[1], leadingLex) or tokens[1])
+    local firstFrom = firstWord and boundaryOf(leadingLex, firstWord) or nil
     -- A phrase that reaches at or past token 1's own boundary is spanning
     -- into the player's words: refuse it rather than carry the longer match
     if phrase and not (firstFrom and firstFrom <= consumed) then

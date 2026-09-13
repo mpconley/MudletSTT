@@ -179,6 +179,21 @@ describe("a phrase reaching into a message body", function()
     assert.equals(0, count)
   end)
 
+  -- The guard has to read the first word as corrected, not as heard. A
+  -- mishearing is absent from the lexicon, so a guard reading the spoken token
+  -- finds no entry, no boundary, and lets a boundary-less phrase entry through
+  -- - leaving the message body exposed. The released 1.4.1, which has no phrase
+  -- index at all, gets this line right, so reading the spoken token would make
+  -- the branch worse than the shipped package.
+  it("reads the corrected first word, not the spoken one", function()
+    local leading = lex({
+      { word = "whisper", syntax = "whisper %player %text" },
+      { word = "whisper wall" },
+    })
+    local out = correct.apply("whispr wall hello there", leading, args)
+    assert.equals("whisper wall hello there", out)
+  end)
+
   it("takes the stricter boundary when both entries name one", function()
     -- "tell %player %text" walls off from token 3; the phrase's own pattern
     -- would allow correction one token further in
