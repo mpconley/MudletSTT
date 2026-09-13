@@ -268,7 +268,12 @@ describe("a phrase", function()
   end)
 
   it("is never long, whatever its tokens add up to", function()
-    assert.is_nil(grade.problems("necromancer council", nil, false).long)
+    assert.is_nil(grade.problems("necromancer council").long)
+  end)
+
+  it("calls a long word long only when the dictionary does not know it", function()
+    assert.is_true(grade.problems("abilitymonitor", nil, false).long)
+    assert.is_nil(grade.problems("abilitymonitor", nil, true).long)
   end)
 
   it("is unsayable when any token is", function()
