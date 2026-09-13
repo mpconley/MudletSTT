@@ -220,9 +220,32 @@ end
 -- because hallo is a social - so the client rewrote what the player said, on a
 -- channel, in front of everyone reading it.
 function correct.apply(text, leadingLex, argumentLex)
-  local out, count, index, proseFrom = {}, 0, 0, nil
-  for token in tostring(text or ""):gmatch("%S+") do
-    index = index + 1
+  local tokens = {}
+  for token in tostring(text or ""):gmatch("%S+") do tokens[#tokens + 1] = token end
+
+  local out, count, proseFrom = {}, 0, nil
+  local index = 1
+
+  -- A multi-word catalog word is one unit at the start of the line, and
+  -- has to be matched before any token is corrected on its own: "guild"
+  -- alone would be pulled toward some other leading word, and the entry's
+  -- syntax, keyed by the whole phrase, would never be found.
+  if leadingLex and #tokens >= 2 then
+    local phrase, consumed = correct.phrase(tokens, leadingLex)
+    if phrase then
+      local original = table.concat(tokens, " ", 1, consumed):lower()
+      if original ~= phrase then count = count + 1 end
+      out[#out + 1] = phrase
+      local entry = leadingLex.exact[phrase]
+      proseFrom = entry and correct.proseFrom(entry.syntax) or nil
+      -- The pattern counts the phrase's own tokens, so the boundary is
+      -- already in line-token terms
+      index = consumed + 1
+    end
+  end
+
+  while index <= #tokens do
+    local token = tokens[index]
     if proseFrom and index >= proseFrom then
       out[#out + 1] = token
     else
@@ -242,6 +265,7 @@ function correct.apply(text, leadingLex, argumentLex)
         proseFrom = entry and correct.proseFrom(entry.syntax) or nil
       end
     end
+    index = index + 1
   end
   return table.concat(out, " "), count
 end

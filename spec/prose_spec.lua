@@ -98,3 +98,48 @@ describe("correcting around a message body", function()
     assert.equals("wiz say hello", out)
   end)
 end)
+
+-- A multi-word catalog word is one unit at the start of a line. Before this,
+-- "priest officers hello all" corrected "priest" and "officers" as two
+-- separate tokens, never found the entry, and so never found its %text
+-- boundary: the message body stayed a correction candidate.
+describe("a leading phrase", function()
+  local leading = lex({
+    { word = "priest officers", syntax = "priest officers %text" },
+    { word = "score guild" },
+    { word = "say", syntax = "say %text" },
+    { word = "priest" },
+    { word = "score" },
+  })
+  local args = lex({ { word = "hallo" }, { word = "bob" } })
+
+  it("is matched as one unit and its body is left alone", function()
+    local out, count = correct.apply("priest officers hello all", leading, args)
+    assert.equals("priest officers hello all", out)
+    assert.equals(0, count)
+  end)
+
+  it("is corrected as a unit from a near miss and still walls off the body", function()
+    local out, count = correct.apply("priest oficers hello all", leading, args)
+    assert.equals("priest officers hello all", out)
+    assert.equals(1, count)
+  end)
+
+  it("lets argument correction continue after a phrase with no prose", function()
+    local out = correct.apply("score guild bobb", leading, args)
+    assert.equals("score guild bob", out)
+  end)
+
+  it("falls back to single-token correction when no phrase fits", function()
+    -- Four letters, so the single-token budget of 1 applies; "sya" would be
+    -- refused outright under the existing short-word rule.
+    local out = correct.apply("saay hello", leading, args)
+    assert.equals("say hello", out)
+  end)
+
+  it("does not let a phrase in argument position match", function()
+    -- The phrase index is only consulted at the start of a line.
+    local out = correct.apply("say score guild", leading, args)
+    assert.equals("say score guild", out)
+  end)
+end)
