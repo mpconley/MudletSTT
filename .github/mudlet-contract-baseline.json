@@ -1,0 +1,21 @@
+{
+  "_comment": [
+    "The Mudlet-side contract this package is written against, pinned by blob SHA.",
+    "mudlet-contract-watch.yml compares these against Mudlet's development branch and",
+    "opens an issue when one moves, so a change to the stt.* bridge is noticed here",
+    "rather than by a player whose microphone stopped working.",
+    "",
+    "Update a SHA once the change behind it has been reviewed and this package either",
+    "needs nothing or has been adjusted. Leaving one stale is what keeps the issue open.",
+    "",
+    "Paths are watched, not the whole repository: Mudlet lands dozens of commits a week",
+    "and almost none of them touch this API."
+  ],
+  "repo": "Mudlet/Mudlet",
+  "ref": "development",
+  "paths": {
+    "docs/stt-api.md": "c0a1f9556f59be9e4c8a30d33898fb77363e64f2",
+    "src/TLuaInterpreterSpeechToText.cpp": "52c467cc11c9e9ef70b9d216167dcc8495f38c02",
+    "src/mudlet-lua/tests/STT_spec.lua": "d2b96b25a380a3c6190a9f6bb47f66149f7c8b8c"
+  }
+}
