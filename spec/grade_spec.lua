@@ -243,3 +243,36 @@ describe("the report", function()
     assert.equals(0, report.tierOne)
   end)
 end)
+
+describe("a phrase", function()
+  it("is graded token by token", function()
+    assert.is_true(grade.problems("guild tset").impossibleOnset)
+    assert.is_true(grade.problems("guild tth").noVowel)
+    -- "cc" as a later token clears the two-letter floor, so what is
+    -- wrong with it is the missing vowel, not the length
+    assert.is_true(grade.problems("score cc").noVowel)
+    assert.is_true(grade.problems("cc guild").tooShort)
+  end)
+
+  it("passes when every token passes", function()
+    assert.same({}, grade.problems("score guild"))
+  end)
+
+  it("binds the length floor to the leading token only", function()
+    -- "to" inside "say to" is part of the phrase's path, not an
+    -- abbreviation a recognizer could be steered toward
+    assert.same({}, grade.problems("say to"))
+    assert.same({}, grade.problems("word of recall"))
+    assert.is_true(grade.problems("to say").tooShort)
+    assert.is_true(grade.problems("sc guild").tooShort)
+  end)
+
+  it("is never long, whatever its tokens add up to", function()
+    assert.is_nil(grade.problems("necromancer council", nil, false).long)
+  end)
+
+  it("is unsayable when any token is", function()
+    assert.is_true(grade.unsayable("guild tset"))
+    assert.is_false(grade.unsayable("score guild"))
+  end)
+end)
