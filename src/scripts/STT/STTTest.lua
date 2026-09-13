@@ -288,13 +288,24 @@ end
 local MIN_SPOKEN_LENGTH = 3
 
 local function speakable(word)
-  if not (type(word) == "string" and #word >= MIN_SPOKEN_LENGTH and word:find("^%a+$") ~= nil) then
-    return false
+  if type(word) ~= "string" or word == "" then return false end
+  -- A catalog word may be a phrase ("score guild"); each token is judged as
+  -- a person would say it. Anything that is not plainly letters, and
+  -- anything the grader already knows cannot be said, has no business in a
+  -- spoken test: asking for "gec" measures the vocabulary, not the recognizer.
+  local index = 0
+  for token in word:gmatch("%S+") do
+    index = index + 1
+    -- The length floor binds the leading token; a later one ("say to")
+    -- needs only two letters, matching the grader and the server.
+    local floor = (index == 1) and MIN_SPOKEN_LENGTH or 2
+    -- Letters and hyphen, which the audit and the server accept too
+    -- ("half-elf" is a catalog word); the grader is looser and also
+    -- tolerates an apostrophe, which no engine ever emits
+    if #token < floor or token:find("^[%a%-]+$") == nil then
+      return false
+    end
   end
-  -- And nothing the grader already knows cannot be said. A run that asked for
-  -- "gec" and "priestofc" spent three passes each on words "stt vocab" reports
-  -- statically as unspeakable, and counted their failure against the
-  -- recogniser. Those are a vocabulary finding, not a recognition one.
   if sttpkg.grade and sttpkg.grade.unsayable and sttpkg.grade.unsayable(word) then
     return false
   end
@@ -560,6 +571,25 @@ end
 -- different question.
 function test.lastPhrases()
   return test._lastPhrases
+end
+
+--- Phrases from "stt test phrases a; b; c [n]": split on semicolons, trimmed,
+-- empties dropped, and a trailing integer on the last item read as the pass
+-- count. Kept apart from the alias so it can be tested without Mudlet.
+function test.parsePhraseList(text)
+  local phrases, passes = {}, nil
+  for item in tostring(text or ""):gmatch("[^;]+") do
+    item = item:gsub("^%s+", ""):gsub("%s+$", "")
+    if item ~= "" then phrases[#phrases + 1] = item end
+  end
+  if #phrases > 0 then
+    local last, n = phrases[#phrases]:match("^(.-)%s+(%d+)$")
+    if last then
+      phrases[#phrases] = last
+      passes = tonumber(n)
+    end
+  end
+  return phrases, passes
 end
 
 --- Begin a run. Recognised text is scored instead of reaching the game, so a
