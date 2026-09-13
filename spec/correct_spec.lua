@@ -269,9 +269,19 @@ describe("a phrase outbidding a token", function()
   end)
 
   it("caps the joined budget at what the tokens would have had apart", function()
-    -- 0 for "get" plus 1 for "chest" is 1, where the joined string claims 2
+    -- The cap can only be pinned on a first word the lexicon does not know.
+    -- Asserted on "get chest", this passes with the cap removed, because "get"
+    -- is itself a word and the exact-first-word rule refuses every candidate
+    -- on its own. "see" is not a word here, so that rule stays out of it: the
+    -- joined string earns 2, the tokens earn 0 and 1 apart, and "sea chest" is
+    -- two edits away, so the cap is the only thing that refuses it.
+    assert.is_nil(leading.exact["see"])
+    assert.equals(2, correct.maxDistance(#"see ches"))
+    assert.equals(1, correct.maxDistance(#"see") + correct.maxDistance(#"ches"))
+    assert.equals(2, correct.distance("see ches", "sea chest", 5))
+    assert.is_nil((correct.phrase({ "see", "ches" }, leading)))
+    -- and the inflation the cap exists to undo, on the case that named it
     assert.equals(2, correct.maxDistance(#"get chest"))
-    assert.is_nil((correct.phrase({ "get", "chest" }, leading)))
   end)
 
   it("still corrects a phrase whose first word is not itself a word", function()
