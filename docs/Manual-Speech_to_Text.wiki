@@ -102,8 +102,12 @@ On games without vocabulary support, speech to text still works &mdash; you simp
 
 = Checking how well it hears you =
 
- stt test        &larr; speak set phrases; nothing is sent to the game
- stt test scope  &larr; phrases built from what is in this room and your inventory
+ stt test          &larr; speak set phrases; nothing is sent to the game
+ stt test game     &larr; phrases from this game's own vocabulary
+ stt test scope    &larr; phrases built from what is in this room and your inventory
+ stt test phrases score guild; guild score 3   &larr; your own list, three passes
+ stt test repeat   &larr; the last list again, to compare a changed setting
+ stt vocab         &larr; which of the game's words can be said at all
 
 Each run scores what was heard against what was asked &mdash; exact matches, word errors, and which phrases failed &mdash; so you can compare models, sensitivities and biasing on numbers rather than impressions.
 

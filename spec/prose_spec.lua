@@ -98,3 +98,142 @@ describe("correcting around a message body", function()
     assert.equals("wiz say hello", out)
   end)
 end)
+
+-- A multi-word catalog word is one unit at the start of a line. Before this,
+-- "priest officers hello all" corrected "priest" and "officers" as two
+-- separate tokens, never found the entry, and so never found its %text
+-- boundary: the message body stayed a correction candidate.
+describe("a leading phrase", function()
+  local leading = lex({
+    { word = "priest officers", syntax = "priest officers %text" },
+    { word = "score guild" },
+    { word = "say", syntax = "say %text" },
+    { word = "priest" },
+    { word = "score" },
+  })
+  local args = lex({ { word = "hallo" }, { word = "bob" } })
+
+  it("is matched as one unit and its body is left alone", function()
+    local out, count = correct.apply("priest officers hello all", leading, args)
+    assert.equals("priest officers hello all", out)
+    assert.equals(0, count)
+  end)
+
+  it("is corrected as a unit from a near miss and still walls off the body", function()
+    local out, count = correct.apply("priest oficers hello all", leading, args)
+    assert.equals("priest officers hello all", out)
+    assert.equals(1, count)
+  end)
+
+  it("lets argument correction continue after a phrase with no prose", function()
+    local out = correct.apply("score guild bobb", leading, args)
+    assert.equals("score guild bob", out)
+  end)
+
+  it("falls back to single-token correction when no phrase fits", function()
+    -- Four letters, so the single-token budget of 1 applies; "sya" would be
+    -- refused outright under the existing short-word rule.
+    local out = correct.apply("saay hello", leading, args)
+    assert.equals("say hello", out)
+  end)
+
+  it("does not let a phrase in argument position match", function()
+    -- The phrase index is only consulted at the start of a line.
+    local out = correct.apply("say score guild", leading, args)
+    assert.equals("say score guild", out)
+  end)
+end)
+
+-- The phrase path read its boundary only from the entry it matched, throwing
+-- away what token 1's own entry said. With both "say" (whose pattern makes the
+-- rest of the line the player's words) and "say hello" in the catalog, the
+-- phrase consumed two tokens, took no boundary from an entry that has none, and
+-- left the message body a correction candidate again - the exact defect the
+-- boundary exists to close.
+describe("a phrase reaching into a message body", function()
+  local args = lex({ { word = "hallo" }, { word = "world" }, { word = "bob" } })
+
+  it("refuses a phrase that spans past the boundary token one set", function()
+    local leading = lex({ { word = "say", syntax = "say %text" }, { word = "say hello" } })
+    local out, count = correct.apply("say hello wold", leading, args)
+    assert.equals("say hello wold", out)
+    assert.equals(0, count)
+  end)
+
+  it("refuses it even when the phrase itself is the near miss", function()
+    -- "say hallo" is one edit from what was heard, and "hallo" is a social:
+    -- accepting the phrase here would rewrite the player's greeting on a channel
+    local leading = lex({ { word = "say", syntax = "say %text" }, { word = "say hallo" } })
+    local out, count = correct.apply("say hello there", leading, args)
+    assert.equals("say hello there", out)
+    assert.equals(0, count)
+  end)
+
+  it("keeps the body of an exact phrase that a longer near miss would have taken", function()
+    local leading = lex({
+      { word = "guild say", syntax = "guild say %text" },
+      { word = "guild sam smith" },
+    })
+    local out, count = correct.apply("guild say smith hallo", leading, args)
+    assert.equals("guild say smith hallo", out)
+    assert.equals(0, count)
+  end)
+
+  -- The guard has to read the first word as corrected, not as heard. A
+  -- mishearing is absent from the lexicon, so a guard reading the spoken token
+  -- finds no entry, no boundary, and lets a boundary-less phrase entry through
+  -- - leaving the message body exposed. The released 1.4.1, which has no phrase
+  -- index at all, gets this line right, so reading the spoken token would make
+  -- the branch worse than the shipped package.
+  it("reads the corrected first word, not the spoken one", function()
+    local leading = lex({
+      { word = "whisper", syntax = "whisper %player %text" },
+      { word = "whisper wall" },
+    })
+    local out = correct.apply("whispr wall hello there", leading, args)
+    assert.equals("whisper wall hello there", out)
+  end)
+
+  -- Reading only the heard first word is not enough either. A mishearing of
+  -- three letters or fewer gets no edit budget, so correct.token returns nil
+  -- for it, the guard finds no entry, and a boundary-less phrase entry goes
+  -- through carrying the body with it: "szy hello wold" came out
+  -- "say hello world", a fluent sentence the player did not say. Accepting a
+  -- phrase asserts the player said its first word, so that word's own boundary
+  -- is the one that has to hold.
+  it("reads the phrase's own first word when the heard one cannot be corrected", function()
+    local leading = lex({ { word = "say", syntax = "say %text" }, { word = "say hello" } })
+    local out = correct.apply("szy hello wold", leading, args)
+    assert.is_falsy(out:find("say hello", 1, true))
+    -- What is left is what the released package does with a command word it
+    -- cannot identify at all, which is a limitation this branch neither
+    -- introduces nor is able to fix: no entry means no boundary.
+    assert.equals("szy hallo world", out)
+  end)
+
+  -- The other source is load-bearing too, on the line where the two disagree:
+  -- token 1 corrects to one word while the phrase starts with another. Neither
+  -- the phrase entry nor its first word carries a pattern here, so only the
+  -- word token 1 actually turned out to be can refuse the match. Without that
+  -- source the phrase is taken and the greeting becomes a social.
+  it("reads the corrected first word when it names a boundary the phrase does not", function()
+    local leading = lex({
+      { word = "shout", syntax = "shout %text" },
+      { word = "shoot arrow" },
+    })
+    local out = correct.apply("shoat arrow hello", leading, args)
+    assert.equals("shout arrow hello", out)
+  end)
+
+  it("takes the stricter boundary when both entries name one", function()
+    -- "tell %player %text" walls off from token 3; the phrase's own pattern
+    -- would allow correction one token further in
+    local leading = lex({
+      { word = "tell", syntax = "tell %player %text" },
+      { word = "tell bob", syntax = "tell bob %player %text" },
+    })
+    local out, count = correct.apply("tell bob hello there", leading, args)
+    assert.equals("tell bob hello there", out)
+    assert.equals(0, count)
+  end)
+end)

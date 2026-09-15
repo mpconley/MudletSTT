@@ -242,3 +242,21 @@ describe("building a set from the game", function()
     assert.equals(0, #test.gamePhrases())
   end)
 end)
+
+describe("multi-word catalog words in a game phrase set", function()
+  it("are eligible when every token is speakable", function()
+    _G.mcvp = {
+      entries = function(opts)
+        if opts.category == "commands" and opts.maxPriority == 1 then
+          return { { word = "score guild" }, { word = "guild tset" }, { word = "kill", syntax = "kill %living" } }
+        end
+        return {}
+      end,
+    }
+    local phrases = test.gamePhrases(10)
+    local seen = {}
+    for _, p in ipairs(phrases) do seen[p] = true end
+    assert.is_true(seen["score guild"])
+    assert.is_nil(seen["guild tset"])
+  end)
+end)

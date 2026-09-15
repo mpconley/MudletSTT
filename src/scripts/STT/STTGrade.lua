@@ -175,26 +175,33 @@ function grade.problems(word, neighbours, known, splits)
   local found = {}
   if w == "" then return found end
 
-  if w:find("[^a-z%-'%s]") then
-    found.nonLetters = true
-  end
-  -- Only for words long enough that shortness is not already the answer. A
-  -- two-letter abbreviation with no vowel is reported as an abbreviation, once,
-  -- rather than appearing in two classes that give different advice.
-  -- Neither of these is the story for a word of one or two letters: that is
-  -- already reported below, once, with advice of its own. Saying "cc" both
-  -- cannot be pronounced and is an abbreviation is two answers to one question.
-  if #w >= 3 then
-    if not grade.hasVowel(w) then
-      found.noVowel = true
-    elseif not ONSETS[grade.onset(w)] then
-      found.impossibleOnset = true
+  -- Each token of a phrase has to be sayable on its own: "guild tset" is
+  -- exactly as unreachable as "tset". The pronunciation classes are taken
+  -- per token; the dictionary classes below stay whole-string, because a
+  -- phrase is already exempt from them by design. The length floor binds
+  -- a word on its own and a phrase's leading token: "to" inside "say to"
+  -- is part of the phrase's path, not an abbreviation the recogniser could
+  -- be steered toward, so a later token needs only two letters.
+  local tokens = {}
+  for token in w:gmatch("%S+") do tokens[#tokens + 1] = token end
+  if #tokens == 0 then tokens[1] = w end
+  for i, token in ipairs(tokens) do
+    local floor = (i == 1) and 3 or 2
+    if token:find("[^a-z%-']") then
+      found.nonLetters = true
     end
-  end
-  if #w == 1 then
-    found.singleLetter = true
-  elseif #w <= 2 then
-    found.tooShort = true
+    if #token >= floor then
+      if not grade.hasVowel(token) then
+        found.noVowel = true
+      elseif not ONSETS[grade.onset(token)] then
+        found.impossibleOnset = true
+      end
+    end
+    if #token == 1 then
+      found.singleLetter = true
+    elseif #token < floor then
+      found.tooShort = true
+    end
   end
   -- Long is only a risk for a word the recogniser has no reason to know.
   -- "accessibility" is thirteen letters and perfectly ordinary; flagging it

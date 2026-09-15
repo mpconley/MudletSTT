@@ -63,6 +63,11 @@ stt sensitivity short|default|long   how soon a phrase counts as finished
 stt timeout <ms>       stop after this much silence; 0 keeps listening
 stt focus stop|keep    whether to stop listening when Mudlet loses focus
 stt test [n]     score recognition against set phrases, n passes (stt test stop)
+stt test game [n]      phrases drawn from this game's own catalog
+stt test scope [n]     phrases naming what is in this room and inventory
+stt test phrases <a>; <b>; ... [n]   an explicit list, for one comparison
+stt test repeat [n]    the last built or given list again
+stt vocab [n|all]      grade the game's catalog for what can be said
 stt model <name> load a different installed model, to compare them
 stt models       list installed speech models
 ```
@@ -89,6 +94,18 @@ tell a real difference from the spread. `stt test 3` runs three passes and
 reports the total; the failure list at the end shows how consistently each
 phrase failed, which is what separates a fault worth chasing from ordinary
 variance.
+
+**Ask one question at a time.** `stt test phrases score guild; guild score 3`
+runs exactly those two phrases three times each, so a server author deciding
+between two spellings of a command measures that and nothing else. Turn
+correction off first (`stt correct off`) when the recogniser alone is the
+question, and run the list once with `stt bias on` and once with `stt bias
+off` via `stt test repeat`. Confirm the switch actually took effect before the
+second run - `stt bias on|off` can answer `deferred`, meaning the engine kept
+the request for its next model load and is still decoding with the old word
+list, and `stt status` reports how many words the engine has really taken. Two
+runs compared without that check can be the same condition twice, which is the
+mistake that forced a measurement to be retracted once already.
 
 ## Events
 
