@@ -125,3 +125,74 @@ describe("the stt alias, on its own help", function()
     assert.is_truthy(said:find("stt test repeat", 1, true))
   end)
 end)
+
+-- stt status is the line a player is asked to paste when speech is not doing
+-- what they expect, so what it leaves out is what nobody can answer for them.
+-- It reported the sensitivity mode and never whether the engine could be tuned,
+-- and reported biasing not at all - neither the setting nor whether the loaded
+-- model can honour it, which is the whole of "I turned bias on and nothing
+-- changed".
+describe("the stt alias, on status", function()
+  local capabilities
+
+  before_each(function()
+    capabilities = {}
+    _G.sttpkg = {
+      config = {
+        autosend = false, livePreview = true, correction = true, lowercase = true,
+        silenceTimeout = 0, sensitivity = "default", biasing = true, stopOnFocusLoss = true,
+      },
+      saveConfig = function() end,
+      bridgeAvailable = function() return true end,
+      versions = function() return "STT 1.5.0" end,
+    }
+    _G.stt = {
+      getInfo = function()
+        return {backend = "sherpa", state = "ready", modelPath = "/models/zipformer", capabilities = capabilities}
+      end,
+    }
+  end)
+
+  it("reports whether biasing is on, which it never used to say at all", function()
+    _G.sttpkg.config.biasing = true
+    assert.is_truthy(runAlias("status"):find("bias on", 1, true))
+    _G.sttpkg.config.biasing = false
+    assert.is_truthy(runAlias("status"):find("bias off", 1, true))
+  end)
+
+  it("says when the loaded model cannot be biased", function()
+    capabilities = {biasing = false}
+    assert.is_truthy(runAlias("status"):find("cannot be biased", 1, true))
+  end)
+
+  it("stays quiet about biasing when the engine can do it", function()
+    capabilities = {biasing = true}
+    local said = runAlias("status")
+    assert.is_truthy(said:find("bias on", 1, true))
+    assert.is_falsy(said:find("cannot be biased", 1, true))
+  end)
+
+  it("says when the engine sets its own phrase endings", function()
+    capabilities = {sensitivityTuning = false}
+    assert.is_truthy(runAlias("status"):find("sets its own phrase endings", 1, true))
+  end)
+
+  -- The case that matters most, because it is every shipping Mudlet today:
+  -- sensitivityTuning is absent, not false. Reading a missing key as "no"
+  -- would tell all of those players their engine cannot be tuned when nothing
+  -- has said so.
+  it("invents no limit from a capability this Mudlet does not publish", function()
+    capabilities = {biasing = true}
+    local said = runAlias("status")
+    assert.is_falsy(said:find("sets its own phrase endings", 1, true))
+    assert.is_falsy(said:find("cannot be biased", 1, true))
+  end)
+
+  it("still reports settings when there is no speech bridge to ask", function()
+    _G.sttpkg.bridgeAvailable = function() return false end
+    local said = runAlias("status")
+    assert.is_truthy(said:find("no speech bridge", 1, true))
+    assert.is_truthy(said:find("bias on", 1, true))
+    assert.is_falsy(said:find("cannot be biased", 1, true))
+  end)
+end)

@@ -18,10 +18,12 @@ elseif sub == "off" then
   sttpkg.disable()
 elseif sub == "status" then
   local state = "no speech bridge in this Mudlet build"
+  local capabilities = {}
   if sttpkg.bridgeAvailable() then
-    local info = stt.getInfo()
+    local info = stt.getInfo() or {}
     local modelName = (info.modelPath or ""):match("[^/]+$") or "none"
     state = string.format("engine %s, state %s, model %s", info.backend or "?", info.state or "?", modelName)
+    capabilities = info.capabilities or {}
   end
   cecho("<light_slate_gray>[STT] " .. state .. "\n")
   cecho(string.format("<light_slate_gray>[STT] autosend %s, preview %s, correction %s, lowercase %s, timeout %dms\n",
@@ -30,8 +32,20 @@ elseif sub == "status" then
     sttpkg.config.correction and "on" or "off",
     sttpkg.config.lowercase and "on" or "off",
     sttpkg.config.silenceTimeout or 0))
-  cecho(string.format("<light_slate_gray>[STT] sensitivity %s, focus %s\n",
-    tostring(sttpkg.config.sensitivity),
+  -- Whether biasing is on is worth as little as whether it can be: a player
+  -- who has turned it on and sees no difference is asking one question, and
+  -- only the capability answers it. Said only when the answer is no, because
+  -- the yes is the ordinary case and this line is read at a glance.
+  --
+  -- "== false" and not "not": a capability this Mudlet does not publish reads
+  -- nil, and nil is not an answer. sensitivityTuning is nil on every Mudlet up
+  -- to 5.0.1, so testing truthiness would invent a limit out of a missing key
+  -- and tell every one of those players their engine cannot be tuned.
+  local tuningNote = capabilities.sensitivityTuning == false and " (this engine sets its own phrase endings)" or ""
+  local biasNote = capabilities.biasing == false and " (this engine or model cannot be biased)" or ""
+  cecho(string.format("<light_slate_gray>[STT] sensitivity %s%s, bias %s%s, focus %s\n",
+    tostring(sttpkg.config.sensitivity), tuningNote,
+    sttpkg.config.biasing and "on" or "off", biasNote,
     sttpkg.config.stopOnFocusLoss and "stop" or "keep"))
   -- Last, because it is the line someone is asked to paste rather than the one
   -- they came for: what is installed, and how current each piece is.
