@@ -96,11 +96,11 @@ All settings are saved per profile and survive restarts.
 |-
 | <code>stt lowercase on&#124;off</code> || Lowercase the first letter, the way commands are typed.
 |-
-| <code>stt sensitivity short&#124;default&#124;long</code> || How soon a phrase counts as finished.  <code>default</code> is the default even for commands: <code>short</code> can cut a one-word command off before the decoder has emitted it, and a wrong command costs more than a slow one.  <code>long</code> suits dictation.  Not every engine can be tuned this way: the macOS recognizer decides its own phrase endings, and Vosk needs a library carrying the endpointer.  A script can ask with <code>stt.getInfo().capabilities.sensitivityTuning</code>.
+| <code>stt sensitivity short&#124;default&#124;long</code> || How soon a phrase counts as finished.  <code>default</code> is the default even for commands: <code>short</code> can cut a one-word command off before the decoder has emitted it, and a wrong command costs more than a slow one.  <code>long</code> suits dictation.  Not every engine can be tuned this way: the macOS recognizer decides its own phrase endings, and Vosk needs a library carrying the endpointer.  <code>stt status</code> says so when yours cannot.
 |-
 | <code>stt timeout &lt;ms&gt;</code> || Stop listening after this much silence; <code>0</code> keeps listening open-ended.
 |-
-| <code>stt bias on&#124;off</code> || Bias the decoder toward the game's vocabulary.  '''On''' by default where the engine and model support it &mdash; <code>stt vocab</code> shows what the biasing budget is being spent on, and a script can ask with <code>stt.getInfo().capabilities.biasing</code>.  It is not free: a few phrases come out worse under biasing, which is what <code>off</code> is for, and <code>stt test</code> measures the difference on your own setup.
+| <code>stt bias on&#124;off</code> || Bias the decoder toward the game's vocabulary.  '''On''' by default where the engine and model support it &mdash; <code>stt status</code> shows the setting and says so when the loaded model cannot honour it, and <code>stt vocab</code> shows what the biasing budget is being spent on.  It is not free: a few phrases come out worse under biasing, which is what <code>off</code> is for, and <code>stt test</code> measures the difference on your own setup.
 |-
 | <code>stt model &lt;name&gt;</code> || Load a different installed model, switching engine if that model belongs to another one.  Your choice is remembered.
 |-
@@ -178,9 +178,9 @@ Each of the run forms takes a trailing number for the pass count; <code>stop</co
 |-
 | Listening, but nothing is heard || Check the input level in <code>stt status</code> &mdash; near zero means the wrong input device or a muted microphone.
 |-
-| <code>stt bias on</code> has no effect || This engine or model cannot be biased.  Check with <code>lua stt.getInfo().capabilities.biasing</code>, or switch model with <code>stt model</code>.  See the engine table above.
+| <code>stt bias on</code> has no effect || This engine or model cannot be biased, and <code>stt status</code> says so on its sensitivity line.  Switch model with <code>stt model</code>, or see the engine table above.
 |-
-| <code>stt sensitivity</code> has no effect || This engine decides its own phrase endings.  Check with <code>lua stt.getInfo().capabilities.sensitivityTuning</code>.
+| <code>stt sensitivity</code> has no effect || This engine decides its own phrase endings, and <code>stt status</code> says so.
 |-
 | A Mac ignores the built-in recognizer || You have Vosk or sherpa-onnx installed, and Mudlet prefers those.  Remove the engine library, or name the built-in one explicitly.
 |}
