@@ -77,7 +77,7 @@ What that means in practice:
 
 * Switching games mid-phrase does not move the session with you.  Results belong to the game the words were spoken to, not to whichever game is in front when you finish.
 * From the profile that is listening, the control stops the session as you would expect.  From any other profile it '''takes''' the microphone instead, because from there the control reads as off however busy the recognizer is.
-* A profile cannot switch off a session another profile started.  Try it and it says so rather than quietly stopping the other game's session.
+* A profile cannot switch off a session another profile started.  <code>stt off</code> there simply does nothing: it has no session of its own to stop, and it will not reach across and stop the other game's.
 
 = Settings =
 
@@ -96,11 +96,11 @@ All settings are saved per profile and survive restarts.
 |-
 | <code>stt lowercase on&#124;off</code> || Lowercase the first letter, the way commands are typed.
 |-
-| <code>stt sensitivity short&#124;default&#124;long</code> || How soon a phrase counts as finished.  <code>default</code> is the default even for commands: <code>short</code> can cut a one-word command off before the decoder has emitted it, and a wrong command costs more than a slow one.  <code>long</code> suits dictation.  Not every engine can be tuned this way &mdash; <code>stt status</code> says whether yours can.
+| <code>stt sensitivity short&#124;default&#124;long</code> || How soon a phrase counts as finished.  <code>default</code> is the default even for commands: <code>short</code> can cut a one-word command off before the decoder has emitted it, and a wrong command costs more than a slow one.  <code>long</code> suits dictation.  Not every engine can be tuned this way: the macOS recognizer decides its own phrase endings, and Vosk needs a library carrying the endpointer.  A script can ask with <code>stt.getInfo().capabilities.sensitivityTuning</code>.
 |-
 | <code>stt timeout &lt;ms&gt;</code> || Stop listening after this much silence; <code>0</code> keeps listening open-ended.
 |-
-| <code>stt bias on&#124;off</code> || Bias the decoder toward the game's vocabulary.  '''On''' by default where the engine and model support it &mdash; <code>stt status</code> says whether yours does.  It is not free: a few phrases come out worse under biasing, which is what <code>off</code> is for, and <code>stt test</code> measures the difference on your own setup.
+| <code>stt bias on&#124;off</code> || Bias the decoder toward the game's vocabulary.  '''On''' by default where the engine and model support it &mdash; <code>stt vocab</code> shows what the biasing budget is being spent on, and a script can ask with <code>stt.getInfo().capabilities.biasing</code>.  It is not free: a few phrases come out worse under biasing, which is what <code>off</code> is for, and <code>stt test</code> measures the difference on your own setup.
 |-
 | <code>stt model &lt;name&gt;</code> || Load a different installed model, switching engine if that model belongs to another one.  Your choice is remembered.
 |-
@@ -155,7 +155,7 @@ On games without vocabulary support, speech to text still works &mdash; you simp
  stt test repeat       &larr; the last set again, so two runs compare rather than ask different questions
  stt test stop         &larr; abandon a run in progress
 
-Any of these forms takes a trailing number for the pass count.  Each run scores what was heard against what was asked &mdash; exact matches, word errors, and which phrases failed &mdash; so you can compare engines, models, sensitivities and biasing on numbers rather than impressions.
+Each of the run forms takes a trailing number for the pass count; <code>stop</code> does not.  Each run scores what was heard against what was asked &mdash; exact matches, word errors, and which phrases failed &mdash; so you can compare engines, models, sensitivities and biasing on numbers rather than impressions.
 
 = Troubleshooting =
 
@@ -178,9 +178,9 @@ Any of these forms takes a trailing number for the pass count.  Each run scores 
 |-
 | Listening, but nothing is heard || Check the input level in <code>stt status</code> &mdash; near zero means the wrong input device or a muted microphone.
 |-
-| <code>stt bias on</code> has no effect || This engine or model cannot be biased; <code>stt status</code> says which.  See the engine table above.
+| <code>stt bias on</code> has no effect || This engine or model cannot be biased.  Check with <code>lua stt.getInfo().capabilities.biasing</code>, or switch model with <code>stt model</code>.  See the engine table above.
 |-
-| <code>stt sensitivity</code> has no effect || This engine decides its own phrase endings; <code>stt status</code> says whether yours can be tuned.
+| <code>stt sensitivity</code> has no effect || This engine decides its own phrase endings.  Check with <code>lua stt.getInfo().capabilities.sensitivityTuning</code>.
 |-
 | A Mac ignores the built-in recognizer || You have Vosk or sherpa-onnx installed, and Mudlet prefers those.  Remove the engine library, or name the built-in one explicitly.
 |}
