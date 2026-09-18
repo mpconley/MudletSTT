@@ -187,7 +187,7 @@ Each of the run forms takes a trailing number for the pass count; <code>stop</co
 
 = For scripters =
 
-Everything above is built on the <code>stt.*</code> Lua API, which any script or package can use directly.  Return values follow one convention: '''<code>true</code> means done, and <code>nil</code> plus a message is a refusal or a fault &mdash; the message says which, and the same text arrives as <code>sysSTTError</code>.'''  The queries return plain booleans, and <code>stt.setVocabulary()</code> returns a boolean that answers ''can this engine use these words'' rather than reporting success or failure.
+Everything above is built on the <code>stt.*</code> Lua API, which any script or package can use directly.  Return values follow one convention: '''<code>true</code> means done, and <code>nil</code> plus a message is a refusal or a fault &mdash; the message says which, and the same text arrives as <code>sysSTTError</code>.'''  Two refusals answer in the return value alone: <code>stt.stop()</code> when the bridge is already in the error state, because the fault that put it there has been announced already, and any call made by a <code>sysSTTError</code> handler itself, so that a handler is never run again inside itself.  The queries return plain booleans, and <code>stt.setVocabulary()</code> returns a boolean that answers ''can this engine use these words'' rather than reporting success or failure.
 
 The full contract &mdash; written so other clients can implement the same surface &mdash; is [https://github.com/Mudlet/Mudlet/blob/development/docs/stt-api.md docs/stt-api.md] in Mudlet's own source.
 
@@ -206,6 +206,8 @@ The full contract &mdash; written so other clients can implement the same surfac
 <code>stt.init(modelPath)</code> picks the engine from that folder's layout, so a script never names an engine.  <code>stt.init()</code> with no argument loads the default installed model, or the built-in macOS recognizer when no other engine is installed.
 
 <code>stt.getInfo()</code> reports <code>backend</code>, <code>state</code>, <code>available</code>, <code>initialized</code>, <code>listening</code>, <code>modelPath</code>, <code>language</code>, <code>version</code>, <code>audioLevel</code>, <code>sensitivity</code>, <code>silenceTimeout</code>, <code>searchPaths</code> and a <code>capabilities</code> table of <code>biasing</code>, <code>grammar</code>, <code>words</code>, <code>sensitivityTuning</code> and <code>onDevice</code>.  Read the capabilities rather than assuming: they differ per engine, and on some engines per model &mdash; so re-read them after <code>stt.init()</code>, or follow <code>sysSTTCapabilitiesChanged</code>, rather than caching them at startup.
+
+<code>stt.reloadLibrary()</code> and <code>stt.unloadLibrary()</code> are the exception to that convention: they answer <code>true</code>, or <code>false</code> plus a message, and never <code>nil</code>.  A reload that finds no usable library says where it looked, and a refusal while the engine is in use says so; both also arrive as <code>sysSTTError</code>.
 
 {{note}} <code>stt.reloadLibrary()</code> and <code>stt.unloadLibrary()</code> currently act on Vosk only.  They do nothing for sherpa-onnx, and are meaningless for the macOS recognizer, which loads no library.
 
