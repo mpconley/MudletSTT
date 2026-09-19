@@ -5,7 +5,7 @@ __NOINDEX__
 DRAFT — This page documents functionality that is not yet released and is subject to change. Do not follow this text until release.
 </div>
 
-Mudlet can turn your speech into game commands: press a microphone button, say ''get torch'', and the words land on your command line, ready to send.  Recognition runs on your own computer, and nothing is switched on until you set it up.  Speech to text was built for accessibility first &mdash; playing when typing is difficult &mdash; but it is there for anyone who would rather talk than type.
+Mudlet can turn your speech into game commands: press a microphone button, say ''get torch'', and the words land on your command line, ready to send.  Recognition runs on your own computer, and nothing is switched on until you set it up.  Speech to text was built for accessibility first, for playing when typing is difficult, but it is there for anyone who would rather talk than type.
 
 = What is Speech to Text? =
 
@@ -17,18 +17,18 @@ Speech recognition in Mudlet is made of up to three parts, so your client carrie
 
 [[File:Stt-engine-choice.png|thumb|right|400px|alt=Decision tree. stt.init() with a model folder loads whichever engine that folder's layout belongs to, Vosk or sherpa-onnx; an unrecognized layout, or no folder at all, falls back to whichever engine library is installed, preferring sherpa-onnx over Vosk. With no engine installed, macOS uses its built-in recognizer and other platforms refuse with a message saying where to install one.|Which engine you get.]]
 
-{{note}} '''On a Mac you can skip the engine and the model entirely.'''  If you install neither Vosk nor sherpa-onnx, Mudlet uses the system recognizer: no download, no model, no disk space.  If you ''do'' install one of the others, Mudlet uses that instead.
+{{note}} '''On a Mac you can skip the engine and the model entirely.'''  If you install neither Vosk nor sherpa-onnx, Mudlet uses the system recognizer, which needs no download and no disk space.  If you ''do'' install one of the others, Mudlet uses that instead.
 
 = Privacy =
 
-* Recognition is '''on-device''' for every engine Mudlet ships: audio and transcripts stay on your computer.  The macOS recognizer is explicitly held to this &mdash; Mudlet requires its on-device mode rather than letting it fall back to Apple's servers.  A script can check for itself with <code>stt.getInfo().capabilities.onDevice</code>, which any engine must claim deliberately; anything that has not claimed it reports <code>false</code>.
+* Recognition is '''on-device''' for every engine Mudlet ships: audio and transcripts stay on your computer.  Mudlet requires the macOS recognizer's on-device mode, so it cannot fall back to Apple's servers.  A script can check for itself with <code>stt.getInfo().capabilities.onDevice</code>, which any engine must claim deliberately; anything that has not claimed it reports <code>false</code>.
 * Your operating system will ask for '''microphone permission''', and on macOS for '''speech recognition''' as well.  You can change your answers later in System Settings &rarr; Privacy &amp; Security.
-* The microphone closes when you stop listening, and while it is open Mudlet shows it in two places: the microphone button '''pulses''', and the window title gains '''(listening)''' &mdash; so an open microphone stays visible even when the window is minimised or behind something else.
-* You can check what you are installing.  Both packages are published straight from their source repositories by CI, so their [https://packages.mudlet.org/packages/stt package page] shows a '''Published from source by CI''' panel naming the repository, the workflow and the exact commit a release was built from &mdash; worth a look for anything you are granting microphone access to.
+* The microphone closes when you stop listening, and while it is open Mudlet shows it in two places: the microphone button '''pulses''', and the window title gains '''(listening)'''.  An open microphone stays visible even when the window is minimised or behind something else.
+* You can check what you are installing.  Both packages are published straight from their source repositories by CI, so their [https://packages.mudlet.org/packages/stt package page] shows a '''Published from source by CI''' panel naming the repository, the workflow and the exact commit a release was built from.
 
 = Setting it up =
 
-Speech to text needs Mudlet '''[CONFIRM: the release that introduces the speech API &mdash; see the talk page]''' or later, with '''MudletSTT 1.5.0''' and '''MudletMCVP 2.1.0'''.  Earlier versions, 5.0.1 included, have no speech support at all: neither the microphone button nor the <code>stt</code> alias exists there, so there is nothing to fall back to.
+Speech to text needs Mudlet '''[CONFIRM: the release that introduces the speech API; see the talk page]''' or later, with '''MudletSTT 1.5.1''' and '''MudletMCVP 2.1.0'''.  Earlier versions, 5.0.1 included, have no speech support at all: neither the microphone button nor the <code>stt</code> alias exists there, so there is nothing to fall back to.
 
 == 1. Install the package ==
 
@@ -40,13 +40,13 @@ That is the whole installation on macOS.  On Windows and Linux, carry on to step
 
 == 2. Install an engine and a model ==
 
-'''On macOS, skip this step''' unless you want a different engine &mdash; see the note above.
+'''On macOS, skip this step''' unless you want a different engine (see the note above).
 
 There is no one-click engine pack yet, so this is a manual step: place the engine library in the folder <code>stt.getLibraryPath()</code> names, and unpack models into <code>stt.getModelPath()</code>.
 
-Run <code>lua stt.getPlatformKey()</code> to see which build your machine needs: <code>macos</code>, <code>windows-x64</code>, <code>windows-x86</code>, <code>linux-x86_64</code> or <code>linux-aarch64</code>.  It returns nothing on platforms with no published build &mdash; Windows on ARM, and 32-bit Linux &mdash; where Vosk and sherpa-onnx are not an option.
+Run <code>lua stt.getPlatformKey()</code> to see which build your machine needs: <code>macos</code>, <code>windows-x64</code>, <code>windows-x86</code>, <code>linux-x86_64</code> or <code>linux-aarch64</code>.  It returns nothing on platforms with no published build (Windows on ARM, and 32-bit Linux), where Vosk and sherpa-onnx are not an option.
 
-The folder a model is unpacked into decides which engine loads it: Mudlet recognizes each engine's layout, so <code>stt model</code> switching between a Vosk model and a sherpa one just works.
+The folder a model is unpacked into decides which engine loads it: Mudlet recognizes each engine's layout, so <code>stt model</code> can switch between a Vosk model and a sherpa one.
 
 == 3. Check ==
 
@@ -54,15 +54,15 @@ The folder a model is unpacked into decides which engine loads it: Mudlet recogn
 
 This reports the engine, the loaded model, and every setting.  <code>stt models</code> lists the models Mudlet found.
 
-[PASTE: real <code>stt status</code> output from a working setup, as text in a <code>&lt;pre&gt;</code> block rather than a screenshot &mdash; see the talk page]
+[PASTE: real <code>stt status</code> output from a working setup, as text in a <code>&lt;pre&gt;</code> block rather than a screenshot; see the talk page]
 
 = Using it =
 
-Toggle listening any of three ways &mdash; they are all the same control:
+Toggle listening any of three ways; they are all the same control:
 
 * type <code>stt</code> (or <code>stt on</code> / <code>stt off</code>),
 * click the '''Speech''' microphone button on the main toolbar,
-* or use '''Options &rarr; Extensions &rarr; Speech''' in the menu &mdash; on macOS that is the menu bar at the top of the screen.
+* or use '''Options &rarr; Extensions &rarr; Speech''' in the menu (on macOS, the menu bar at the top of the screen).
 
 Then speak.  While you talk, the words appear live in your command line; when you pause, the finished phrase replaces them, ready to send with Enter.  If you would rather Mudlet sends each phrase straight to the game, turn on <code>stt autosend on</code>.
 
@@ -71,13 +71,13 @@ Then speak.  While you talk, the words appear live in your command line; when yo
 
 == One microphone, several profiles ==
 
-Mudlet has a single recognizer, so '''only one profile can be listening at a time'''.  Starting speech in a second profile '''takes''' the microphone: the first profile's session ends there and then, and that game is told it has lost it.
+Mudlet has a single recognizer, so '''only one profile can be listening at a time'''.  Starting speech in a second profile takes the microphone: the first profile's session ends there and then, and that game is told it has lost it.
 
 What that means in practice:
 
-* Switching games mid-phrase does not move the session with you.  Results belong to the game the words were spoken to, not to whichever game is in front when you finish.
-* From the profile that is listening, the control stops the session as you would expect.  From any other profile it '''takes''' the microphone instead, because from there the control reads as off however busy the recognizer is.
-* A profile cannot switch off a session another profile started.  <code>stt off</code> there simply does nothing: it has no session of its own to stop, and it will not reach across and stop the other game's.
+* Switching games mid-phrase does not move the session with you.  Results belong to the game the words were spoken to, even if another game is in front when you finish.
+* From the profile that is listening, the control stops the session as you would expect.  From any other profile it takes the microphone instead, because from there the control reads as off however busy the recognizer is.
+* A profile cannot switch off a session another profile started.  <code>stt off</code> there does nothing: it has no session of its own to stop, and it will not reach across and stop the other game's.
 
 = Settings =
 
@@ -96,11 +96,11 @@ All settings are saved per profile and survive restarts.
 |-
 | <code>stt lowercase on&#124;off</code> || Lowercase the first letter, the way commands are typed.
 |-
-| <code>stt sensitivity short&#124;default&#124;long</code> || How soon a phrase counts as finished.  <code>default</code> is the default even for commands: <code>short</code> can cut a one-word command off before the decoder has emitted it, and a wrong command costs more than a slow one.  <code>long</code> suits dictation.  Not every engine can be tuned this way: the macOS recognizer decides its own phrase endings, and Vosk needs a library carrying the endpointer.  <code>stt status</code> says so when yours cannot.
+| <code>stt sensitivity short&#124;default&#124;long</code> || How soon a phrase counts as finished.  <code>default</code> is the default even for commands, because <code>short</code> can cut a one-word command off before the decoder has emitted it.  <code>long</code> suits dictation.  Not every engine can be tuned this way: the macOS recognizer decides its own phrase endings, and Vosk needs a library carrying the endpointer.  <code>stt status</code> says so when yours cannot.
 |-
 | <code>stt timeout &lt;ms&gt;</code> || Stop listening after this much silence; <code>0</code> keeps listening open-ended.
 |-
-| <code>stt bias on&#124;off</code> || Bias the decoder toward the game's vocabulary.  '''On''' by default where the engine and model support it &mdash; <code>stt status</code> shows the setting and says so when the loaded model cannot honour it, and <code>stt vocab</code> shows what the biasing budget is being spent on.  It is not free: a few phrases come out worse under biasing, which is what <code>off</code> is for, and <code>stt test</code> measures the difference on your own setup.
+| <code>stt bias on&#124;off</code> || Bias the decoder toward the game's vocabulary.  On by default where the engine and model support it.  <code>stt status</code> shows the setting and says so when the loaded model cannot honour it, and <code>stt vocab</code> shows what the biasing budget is being spent on.  A few phrases come out worse under biasing, which is what <code>off</code> is for, and <code>stt test</code> measures the difference on your own setup.
 |-
 | <code>stt model &lt;name&gt;</code> || Load a different installed model, switching engine if that model belongs to another one.  Your choice is remembered.
 |-
@@ -113,7 +113,7 @@ All settings are saved per profile and survive restarts.
 
 = What each engine can do =
 
-Engines differ, and Mudlet reports the differences rather than pretending they are the same.  <code>stt status</code> shows what the one you are running can do.
+Engines differ.  <code>stt status</code> shows what the one you are running can do.
 
 {| class="wikitable"
 ! !! Vosk !! sherpa-onnx !! macOS built-in
@@ -124,25 +124,25 @@ Engines differ, and Mudlet reports the differences rather than pretending they a
 |-
 | Per-word timing and confidence (<code>sysSTTWords</code>) || yes || not yet || yes
 |-
-| Tune how soon a phrase ends (<code>stt sensitivity</code>) || with a library that carries the endpointer || yes || no &mdash; it decides for itself
+| Tune how soon a phrase ends (<code>stt sensitivity</code>) || with a library that carries the endpointer || yes || no, it decides for itself
 |-
 | Runs on || Windows, Linux, macOS || Windows, Linux, macOS || macOS only
 |}
 
-{{note}} These are the general shape of things; some of them are properties of the '''model''' rather than the engine, so they can change when you load a different one.  <code>stt status</code> always answers for what you are actually running.
+{{note}} These are the general shape of things; some of them are properties of the model rather than the engine, so they can change when you load a different one.  <code>stt status</code> always answers for what you are actually running.
 
 = Hearing your game's words =
 
 Speech engines know everyday English; they do not know your game's verbs, socials and monster names.  Two things close that gap:
 
-* '''Correction''': finished phrases are corrected against the vocabulary your game publishes, so a near-miss becomes the word the game actually accepts.  This needs a game that supports the [[Standards:MUD Client Vocabulary Protocol|MUD Client Vocabulary Protocol]].  The '''MCVP''' package that reads it is a dependency of STT, so <code>mpkg install STT</code> brings it in &mdash; there is nothing separate to install.  It works with every engine, because the correction happens after recognition.
+* '''Correction''': finished phrases are corrected against the vocabulary your game publishes, so a near-miss becomes the word the game actually accepts.  This needs a game that supports the [[Standards:MUD Client Vocabulary Protocol|MUD Client Vocabulary Protocol]].  The '''MCVP''' package that reads it is a dependency of STT, so <code>mpkg install STT</code> brings it in, and there is nothing separate to install.  It works with every engine, because the correction happens after recognition.
 * '''What is in reach''': the names of things in your room and inventory join in automatically on supporting games, so ''get talisman'' works on the talisman actually in front of you.
 
 [[File:Stt-pipeline.png|thumb|right|450px|alt=Pipeline. Audio goes from the microphone to the speech engine, which emits a live partial result and then a finished phrase. Your game's vocabulary acts in two places: biasing steers the engine itself before recognition, while correction fixes near-misses in the finished phrase afterward. The result then goes to the command line, or straight to the game when autosend is on.|Where biasing and correction each act.]]
 
-'''Biasing''' is the stronger version of the same idea &mdash; steering the decoder itself toward those words rather than fixing the result afterward &mdash; but only some engines and models support it.  See the table above.
+'''Biasing''' is the stronger version of the same idea: it steers the decoder itself toward those words instead of fixing the result afterward.  Only some engines and models support it.  See the table above.
 
-On games without vocabulary support, speech to text still works &mdash; you simply get the engine's plain recognition.
+On games without vocabulary support, speech to text still works; you get the engine's plain recognition.
 
 = Checking how well it hears you =
 
@@ -152,33 +152,33 @@ On games without vocabulary support, speech to text still works &mdash; you simp
  stt test game         &larr; phrases from this game's published catalog
  stt test phrases score guild; guild score
                        &larr; your own phrases, separated by semicolons
- stt test repeat       &larr; the last set again, so two runs compare rather than ask different questions
+ stt test repeat       &larr; the last set again, so two runs compare like for like
  stt test stop         &larr; abandon a run in progress
 
-Each of the run forms takes a trailing number for the pass count; <code>stop</code> does not.  Each run scores what was heard against what was asked &mdash; exact matches, word errors, and which phrases failed &mdash; so you can compare engines, models, sensitivities and biasing on numbers rather than impressions.
+Each of the run forms takes a trailing number for the pass count; <code>stop</code> does not.  Each run scores what was heard against what was asked (exact matches, word errors, and which phrases failed), so you can compare engines, models, sensitivities and biasing on numbers rather than impressions.
 
 = Troubleshooting =
 
 {| class="wikitable"
 ! Symptom !! Likely cause
 |-
-| No microphone button || MudletSTT not installed, or your Mudlet predates speech support &mdash; see [[#Setting it up|Setting it up]] for the version you need.
+| No microphone button || MudletSTT not installed, or your Mudlet predates speech support; see [[#Setting it up|Setting it up]] for the version you need.
 |-
-| ''"This Mudlet build has no speech-to-text support"'' || Your Mudlet predates the speech API &mdash; update Mudlet.
+| ''"This Mudlet build has no speech-to-text support"'' || Your Mudlet predates the speech API.  Update Mudlet.
 |-
 | ''"the speech engine library is not installed &hellip; looked in: &hellip;"'' || No engine is installed and there is no built-in one on this platform.  The message lists the exact folders searched.
 |-
-| ''"no model path provided and no language model is installed &mdash; install one into &hellip;"'' || The engine is there but no model is.  The message names the folder to unpack into.
+| ''"no model path provided and no language model is installed - install one into &hellip;"'' || The engine is there but no model is.  The message names the folder to unpack into.
 |-
-| ''"another profile is listening, and only the profile that started a session can stop it"'' || Exactly what it says: switch to the profile that is listening and stop it there, or start speech here to take the microphone.  See [[#One microphone, several profiles|One microphone, several profiles]].
+| ''"another profile is listening, and only the profile that started a session can stop it"'' || Switch to the profile that is listening and stop it there, or start speech here to take the microphone.  See [[#One microphone, several profiles|One microphone, several profiles]].
 |-
 | Speech stopped on its own || Another profile took the microphone.  Only one profile can listen at a time.
 |-
 | Microphone permission denied || Grant it in your system's privacy settings, then start listening again.  On macOS check '''both''' Microphone and Speech Recognition.
 |-
-| Listening, but nothing is heard || Check the input level in <code>stt status</code> &mdash; near zero means the wrong input device or a muted microphone.
+| Listening, but nothing is heard || Run <code>stt test</code>: it reports the mean input level, and flags it when that is near silence.  Near zero means the wrong input device or a muted microphone.
 |-
-| <code>stt bias on</code> has no effect || Read what the command answered.  '''no model is loaded to bias''' means the engine has not started yet, so there is no decoder to steer: <code>stt on</code> loads one, and applies the biasing as it does.  '''this model cannot bias its decoding''' is the model itself, and <code>stt status</code> says so on its sensitivity line &mdash; switch model with <code>stt model</code>, or see the engine table above.  '''takes effect at the next model load''' means the engine kept the request but is still listening with the old word list; stop listening and ask again.
+| <code>stt bias on</code> has no effect || Read what the command answered.  '''no model is loaded to bias''' means the engine has not started yet, so there is no decoder to steer: <code>stt on</code> loads one and applies the biasing as it does.  '''this model cannot bias its decoding''' is the model itself, and <code>stt status</code> repeats it next to the bias setting; switch model with <code>stt model</code>, or see the engine table above.  '''no game vocabulary has arrived to bias toward''' means this game has published no catalog.  '''takes effect at the next model load''' means the request was kept but the decoder is still running with the old word list; stop listening and ask again.
 |-
 | <code>stt sensitivity</code> has no effect || This engine decides its own phrase endings, and <code>stt status</code> says so.
 |-
@@ -187,9 +187,11 @@ Each of the run forms takes a trailing number for the pass count; <code>stop</co
 
 = For scripters =
 
-Everything above is built on the <code>stt.*</code> Lua API, which any script or package can use directly.  Return values follow one convention: '''<code>true</code> means done, and <code>nil</code> plus a message is a refusal or a fault &mdash; the message says which, and the same text arrives as <code>sysSTTError</code>.'''  Two refusals answer in the return value alone: <code>stt.stop()</code> when the bridge is already in the error state, because the fault that put it there has been announced already, and any call made by a <code>sysSTTError</code> handler itself, so that a handler is never run again inside itself.  The queries return plain booleans, and <code>stt.setVocabulary()</code> returns a boolean that answers ''can this engine use these words'' rather than reporting success or failure.
+Everything above is built on the <code>stt.*</code> Lua API, which any script or package can use directly.  Return values follow one convention: <code>true</code> means done, and <code>nil</code> plus a message is a refusal or a fault.  The message says which, and the same text arrives as <code>sysSTTError</code>.
 
-The full contract &mdash; written so other clients can implement the same surface &mdash; is [https://github.com/Mudlet/Mudlet/blob/development/docs/stt-api.md docs/stt-api.md] in Mudlet's own source.
+Two kinds of refusal answer in the return value alone.  The first is one your own call caused: a malformed argument, or a model path handed to a backend that loads no models, which is your package's mistake and not news for every other package on the profile.  The second is <code>stt.setSensitivity()</code> on an engine whose <code>capabilities.sensitivityTuning</code> is <code>false</code>, because that is an answer about the engine rather than a fault, and announcing it would fire on every start for a package that reapplies its saved settings.  Everything the engine itself refused speaks, <code>stt.stop()</code> in the error state included.  The queries return plain booleans, and <code>stt.setVocabulary()</code> returns a boolean that answers ''can this engine use these words'' rather than reporting success or failure.
+
+The full contract is [https://github.com/Mudlet/Mudlet/blob/development/docs/stt-api.md docs/stt-api.md] in Mudlet's own source, written so other clients can implement the same surface.
 
 {| class="wikitable"
 ! Group !! Functions
@@ -205,21 +207,21 @@ The full contract &mdash; written so other clients can implement the same surfac
 
 <code>stt.init(modelPath)</code> picks the engine from that folder's layout, so a script never names an engine.  <code>stt.init()</code> with no argument loads the default installed model, or the built-in macOS recognizer when no other engine is installed.
 
-<code>stt.getInfo()</code> reports <code>backend</code>, <code>state</code>, <code>available</code>, <code>initialized</code>, <code>listening</code>, <code>modelPath</code>, <code>language</code>, <code>version</code>, <code>audioLevel</code>, <code>sensitivity</code>, <code>silenceTimeout</code>, <code>searchPaths</code> and a <code>capabilities</code> table of <code>biasing</code>, <code>grammar</code>, <code>words</code>, <code>sensitivityTuning</code> and <code>onDevice</code>.  Read the capabilities rather than assuming: they differ per engine, and on some engines per model &mdash; so re-read them after <code>stt.init()</code>, or follow <code>sysSTTCapabilitiesChanged</code>, rather than caching them at startup.
+<code>stt.getInfo()</code> reports <code>backend</code>, <code>state</code>, <code>available</code>, <code>initialized</code>, <code>listening</code>, <code>modelPath</code>, <code>language</code>, <code>version</code>, <code>audioLevel</code>, <code>sensitivity</code>, <code>silenceTimeout</code>, <code>searchPaths</code> and a <code>capabilities</code> table of <code>biasing</code>, <code>grammar</code>, <code>words</code>, <code>sensitivityTuning</code> and <code>onDevice</code>.  Capabilities differ per engine, and on some engines per model, so do not cache them at startup: re-read them after <code>stt.init()</code>, or follow <code>sysSTTCapabilitiesChanged</code>.
 
-<code>stt.reloadLibrary()</code> and <code>stt.unloadLibrary()</code> are the exception to that convention: they answer <code>true</code>, or <code>false</code> plus a message, and never <code>nil</code>.  A reload that finds no usable library says where it looked, and a refusal while the engine is in use says so; both also arrive as <code>sysSTTError</code> &mdash; except when the call came from a <code>sysSTTError</code> handler, which hears the refusal in the return value alone.
+<code>stt.reloadLibrary()</code> and <code>stt.unloadLibrary()</code> are the exception to that convention: they answer <code>true</code>, or <code>false</code> plus a message, and never <code>nil</code>.  A refusal while the engine is in use says so, and arrives as <code>sysSTTError</code> as well.  A reload that simply finds nothing installed is not a refusal and carries no message: it answers <code>false</code> on its own, and what that answers is whether speech can be had at all afterwards rather than whether a library in particular turned up.
 
-{{note}} <code>stt.reloadLibrary()</code> and <code>stt.unloadLibrary()</code> currently act on Vosk only.  They do nothing for sherpa-onnx, and are meaningless for the macOS recognizer, which loads no library.
+{{note}} <code>stt.reloadLibrary()</code> re-runs detection for both Vosk and sherpa-onnx, so a library installed while Mudlet is running is found without a restart.  <code>stt.unloadLibrary()</code> still acts on Vosk alone: with sherpa-onnx loaded it refuses and names that engine rather than reporting an unload it cannot perform, so replacing a sherpa-onnx library on Windows means quitting Mudlet.  The macOS recognizer loads no library of its own, but it is still an engine: both calls refuse while any recognizer is loaded, so <code>stt.close()</code> comes first.
 
 == Which profile an event reaches ==
 
-There is one recognizer per client, so at most one profile can be listening.  Events are raised on the profile '''holding the microphone''' &mdash; the one whose <code>stt.start()</code> began the session &mdash; and on the '''active profile''' when no session is running.  Those are the same profile in the ordinary case, and differ when the player moves to another game mid-session.
+There is one recognizer per client, so at most one profile can be listening.  Events are raised on the profile holding the microphone, the one whose <code>stt.start()</code> began the session, and on the active profile when no session is running.  Those are the same profile in the ordinary case, and differ when the player moves to another game mid-session.
 
-A second profile calling <code>stt.start()</code> or <code>stt.toggle()</code> '''takes''' the microphone: the running session stops and the profile that lost it is told through <code>sysSTTHandover</code>.  <code>stt.toggle()</code> therefore only ever stops a session the calling profile owns; from anywhere else it is a request for the microphone.  <code>stt.stop()</code> refuses outright from a profile that does not hold the session.
+A second profile calling <code>stt.start()</code> or <code>stt.toggle()</code> takes the microphone: the running session stops and the profile that lost it is told through <code>sysSTTHandover</code>.  <code>stt.toggle()</code> therefore only ever stops a session the calling profile owns; from anywhere else it is a request for the microphone.  <code>stt.stop()</code> refuses outright from a profile that does not hold the session.
 
-<code>sysSTTCapabilitiesChanged</code> is the one exception to all of this and reaches '''every open profile''', because it does not describe a session: what a backend can do is a property of the engine, and every profile reads the same answer back from <code>stt.getInfo()</code>.
+<code>sysSTTCapabilitiesChanged</code> follows the same rule, which is worth knowing because it does not describe a session: a model loaded or a library reloaded while another profile holds the microphone is announced there, not to every profile that could read the same answer back from <code>stt.getInfo()</code>.
 
-Every handler receives '''two string arguments''': the event name, then the payload below.
+Every handler receives two string arguments: the event name, then the payload below.
 
 {| class="wikitable"
 ! Event !! Carries !! When
@@ -228,20 +230,20 @@ Every handler receives '''two string arguments''': the event name, then the payl
 |-
 | <code>sysSTTPartialResult</code> || text || Words recognized so far, while speaking.
 |-
-| <code>sysSTTWords</code> || JSON || Per-word timing and confidence, alongside each result, on engines whose <code>capabilities.words</code> is true.  Timings are seconds within the utterance on sherpa-onnx and the macOS recognizer, and run from the start of the listening session on Vosk.
+| <code>sysSTTWords</code> || JSON || Per-word timing and confidence, alongside each result, on engines whose <code>capabilities.words</code> is true.  Timings are in seconds, but which clock they are on is the engine's own: the macOS recognizer restarts them with each phrase, while Vosk accumulates them across the whole listening session, so treat them as relative within one payload.  sherpa-onnx does not raise this event at all.
 |-
 | <code>sysSTTStateChanged</code> || state || <code>uninitialized</code>, <code>ready</code>, <code>starting</code>, <code>listening</code>, <code>processing</code> or <code>error</code>.
 |-
-| <code>sysSTTHandover</code> || profile name || Another profile took the microphone and this session is over.  Raised on the profile that lost it, naming the one that now holds it.  Nothing else says why a session stopped &mdash; the state change that follows looks like any ordinary stop.
+| <code>sysSTTHandover</code> || profile name || Another profile took the microphone and this session is over.  Raised on the profile that lost it, naming the one that now holds it.  Nothing else says why a session stopped; the state change that follows looks like any ordinary stop.
 |-
-| <code>sysSTTCapabilitiesChanged</code> || JSON || The <code>capabilities</code> table changed: a model loaded or was released, an engine was created or swapped, or the engine library was unloaded or reloaded.  '''Raised on every open profile''', unlike every other event here.  Same keys as <code>getInfo().capabilities</code>.
+| <code>sysSTTCapabilitiesChanged</code> || JSON || The <code>capabilities</code> table changed: a model loaded or was released, an engine was created or swapped, or the engine library was unloaded or reloaded.  Same keys as <code>getInfo().capabilities</code>.
 |-
 | <code>sysSTTError</code> || message || Something went wrong, in words a player can act on.
 |}
 
 [[File:Stt-states.png|thumb|right|500px|alt=State diagram. From uninitialized, stt.init() reaches ready. stt.start() reaches listening directly, or starting first when permission is needed; a granted permission then reaches listening and a denied one reaches error. stt.stop() moves listening to processing and then back to ready once the last phrase is decoded. An engine fault reaches error, from which stt.init() returns to ready, and stt.close() returns to uninitialized.|The states a recognizer moves through.]]
 
-<code>starting</code> means the request was accepted but audio is not flowing yet &mdash; a permission prompt is usually the reason.  Wait for <code>listening</code> rather than treating a successful <code>stt.start()</code> as proof the microphone is open.
+<code>starting</code> means the request was accepted but audio is not flowing yet, usually because of a permission prompt.  A successful <code>stt.start()</code> is not proof that the microphone is open; wait for <code>listening</code>.
 
 <syntaxhighlight lang="lua">
 registerAnonymousEventHandler("sysSTTResult", function(_, text)
