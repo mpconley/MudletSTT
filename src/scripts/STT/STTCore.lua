@@ -279,13 +279,31 @@ end
 -- client-side correction instead.
 -- Returns the number of words now biasing the decoder, and when that is zero,
 -- why - the same three-way shape applySensitivity() uses, and for the same
--- reason. "unsupported" is a property of the model; "deferred" is this moment
--- only, and the engine has kept the words for its next load. Reported as one
--- number they were indistinguishable, and a deferral was announced to the
--- player as a model that cannot bias at all.
+-- reason. "unsupported" is a property of the model; "nomodel" is the absence
+-- of one, which asks the player for a load rather than for a different model;
+-- "deferred" is this moment only, and the engine has kept the words for its
+-- next load. Reported as one number they were indistinguishable, and both a
+-- deferral and an engine with nothing loaded were announced to the player as
+-- a model that cannot bias at all.
 function sttpkg.applyVocabulary()
   if not sttpkg.bridgeAvailable() or type(stt.setVocabulary) ~= "function" then
     return 0, "unsupported"
+  end
+  -- Asked before the engine has a model, this looks identical to a model that
+  -- cannot bias: setVocabulary refuses, and the capability query has no model
+  -- to describe so it answers false. Telling a player their model cannot bias
+  -- when status reads "state uninitialized, model none" sends them looking for
+  -- a different model instead of loading the one they have.
+  --
+  -- First, and zeroing the count, because both are about a decoder that is not
+  -- there. A model switch that fails to load leaves the engine with nothing,
+  -- and a count kept from the model before it would be reported as what the
+  -- engine still holds. Worse, the withdrawal path would then offer an empty
+  -- list to an absent engine, be refused, and call that deferred - announcing
+  -- words still sitting in a decoder that does not exist.
+  if not stt.initialized() then
+    sttpkg._biasWords = 0
+    return 0, sttpkg.config.biasing and "nomodel" or nil
   end
   if not (mcvp and mcvp.entries) then return 0, "nocatalog" end
   if not sttpkg.config.biasing then

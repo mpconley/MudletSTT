@@ -17,9 +17,13 @@ dofile("src/scripts/STT/STTCorrect.lua")
 dofile("src/scripts/STT/STTCore.lua")
 
 describe("sttpkg.applyVocabulary", function()
-  local function withEngine(canBias, accepts)
+  -- `loaded` is the engine having a model at all, which is not the same
+  -- question as whether that model can bias. Defaults to true, because every
+  -- case below it was written for is about a model that exists.
+  local function withEngine(canBias, accepts, loaded)
     _G.stt = {
       init = function() return true end,
+      initialized = function() return loaded ~= false end,
       getInfo = function() return { capabilities = { biasing = canBias } } end,
       setVocabulary = function() return accepts end,
     }
@@ -75,6 +79,54 @@ describe("sttpkg.applyVocabulary", function()
     local stillApplied, why = sttpkg.applyVocabulary()
     assert.are.equal("deferred", why)
     assert.are.equal(applied, stillApplied, "biasing reported as off while the decoder still had the words")
+  end)
+
+  -- An engine with no model answers a vocabulary exactly as a model that
+  -- cannot bias does: setVocabulary refuses, and the capability query, having
+  -- no model to describe, says biasing is false. So "stt bias on" told a
+  -- player their model cannot bias while status read "state uninitialized,
+  -- model none". The two want opposite things - one a model loaded, the other
+  -- a different model - so they cannot share an answer.
+  it("calls a refusal from an engine with no model loaded nomodel", function()
+    withEngine(false, false, false)
+    local applied, why = sttpkg.applyVocabulary()
+    assert.are.equal(0, applied)
+    assert.are.equal("nomodel", why)
+  end)
+
+  -- Turning biasing off needs no engine: there is nothing loaded to withdraw
+  -- from. Saying "no model" there would be a complaint about a request that
+  -- succeeded.
+  it("turns biasing off quietly when no model is loaded", function()
+    withEngine(false, false, false)
+    sttpkg.config.biasing = false
+    local applied, why = sttpkg.applyVocabulary()
+    assert.are.equal(0, applied)
+    assert.is_nil(why)
+  end)
+
+  -- The count is what the decoder is running, so an engine that no longer has
+  -- a decoder is running none. A model switch that fails to load leaves the
+  -- engine with nothing, and a count kept from the model before it would be
+  -- reported as what the engine still holds - and worse, a later withdrawal
+  -- would be refused by the absent engine and announced as deferred, which
+  -- says the words are still in a decoder that does not exist.
+  it("forgets the running count when the engine loses its model", function()
+    withEngine(true, true)
+    assert.is_true(sttpkg.applyVocabulary() > 0)
+
+    withEngine(true, false, false)
+    assert.are.equal(0, (sttpkg.applyVocabulary()))
+    -- Not only the return: the cached count is what a quality test prints on
+    -- its settings line, so a stale one labels a run with a word count the
+    -- decoder does not have. That is the same mislabelling the deferred cases
+    -- above exist to prevent, arriving by a different route.
+    assert.are.equal(0, sttpkg._biasWords, "a run would be labelled with words no decoder holds")
+
+    sttpkg.config.biasing = false
+    local applied, why = sttpkg.applyVocabulary()
+    assert.are.equal(0, applied)
+    assert.is_nil(why, "a withdrawal from an engine with no decoder was called deferred")
   end)
 
   it("says so when no catalog has arrived", function()

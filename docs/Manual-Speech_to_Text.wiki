@@ -178,7 +178,7 @@ Each of the run forms takes a trailing number for the pass count; <code>stop</co
 |-
 | Listening, but nothing is heard || Check the input level in <code>stt status</code> &mdash; near zero means the wrong input device or a muted microphone.
 |-
-| <code>stt bias on</code> has no effect || This engine or model cannot be biased, and <code>stt status</code> says so on its sensitivity line.  Switch model with <code>stt model</code>, or see the engine table above.
+| <code>stt bias on</code> has no effect || Read what the command answered.  '''no model is loaded to bias''' means the engine has not started yet, so there is no decoder to steer: <code>stt on</code> loads one, and applies the biasing as it does.  '''this model cannot bias its decoding''' is the model itself, and <code>stt status</code> says so on its sensitivity line &mdash; switch model with <code>stt model</code>, or see the engine table above.  '''takes effect at the next model load''' means the engine kept the request but is still listening with the old word list; stop listening and ask again.
 |-
 | <code>stt sensitivity</code> has no effect || This engine decides its own phrase endings, and <code>stt status</code> says so.
 |-
