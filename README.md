@@ -97,14 +97,21 @@ variance.
 
 **Ask one question at a time.** `stt test phrases score guild; guild score 3`
 runs exactly those two phrases three times each, so a server author deciding
-between two spellings of a command measures that and nothing else. Turn
-correction off first (`stt correct off`) when the recogniser alone is the
-question, and run the list once with `stt bias on` and once with `stt bias
-off` via `stt test repeat`. Confirm the switch actually took effect before the
-second run - `stt bias on|off` can answer `deferred`, meaning the engine kept
-the request for its next model load and is still decoding with the old word
-list, and `stt status` reports how many words the engine has really taken. Two
-runs compared without that check can be the same condition twice, which is the
+between two spellings of a command measures that and nothing else. Load a
+model before any of this - biasing needs a decoder to bias, and asked of an
+engine with nothing loaded the command answers that no model is loaded. Turn
+correction off (`stt correct off`) when the recogniser alone is the question,
+and run the list once with `stt bias on` and once with `stt bias off` via `stt
+test repeat`.
+
+Confirm the switch actually took effect before the second run, and read the
+reply to `stt bias` itself to do it. It answers `biasing on (N words)` when the
+decoder took them, and `takes effect at the next model load` when it did not -
+the engine rebuilds its decoder to change what it biases toward and cannot
+while it is listening, so it keeps the request and carries on with the old word
+list. Stop listening and ask again. `stt status` does not settle this: it
+reports the setting you asked for, not the words the decoder holds. Two runs
+compared without that check can be the same condition twice, which is the
 mistake that forced a measurement to be retracted once already.
 
 ## Events

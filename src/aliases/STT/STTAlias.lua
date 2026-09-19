@@ -183,6 +183,10 @@ elseif sub == "bias" and onOff(rest) ~= nil then
     -- the decoder is still running with the old one.
     cecho(string.format("<light_slate_gray>[STT] biasing %s - takes effect at the next model load,"
       .. " still %d words until then\n", rest, applied))
+  elseif sttpkg.config.biasing and why == "nomodel" then
+    -- Named apart from the line below it because the two ask for opposite
+    -- things: load the model you have, against find a different one.
+    cecho("<orange>[STT] biasing on, but no model is loaded to bias - stt on loads one\n")
   elseif sttpkg.config.biasing and why == "unsupported" then
     cecho("<orange>[STT] biasing on, but this model cannot bias its decoding\n")
   elseif sttpkg.config.biasing and why == "nocatalog" then
