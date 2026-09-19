@@ -23,7 +23,7 @@ Speech recognition in Mudlet is made of up to three parts, so your client carrie
 
 * Recognition is '''on-device''' for every engine Mudlet ships: audio and transcripts stay on your computer.  Mudlet requires the macOS recognizer's on-device mode, so it cannot fall back to Apple's servers.  A script can check for itself with <code>stt.getInfo().capabilities.onDevice</code>, which any engine must claim deliberately; anything that has not claimed it reports <code>false</code>.
 * Your operating system will ask for '''microphone permission''', and on macOS for '''speech recognition''' as well.  You can change your answers later in System Settings &rarr; Privacy &amp; Security.
-* The microphone closes when you stop listening, and while it is open Mudlet shows it in two places: the microphone button '''pulses''', and the window title gains '''(listening)'''.  An open microphone stays visible even when the window is minimised or behind something else.
+* The microphone closes when you stop listening, and while it is open Mudlet shows it in two places: the microphone button '''pulses''', and the window title gains '''(listening)'''.  An open microphone stays visible even when the window is minimized or behind something else.
 * You can check what you are installing.  Both packages are published straight from their source repositories by CI, so their [https://packages.mudlet.org/packages/stt package page] shows a '''Published from source by CI''' panel naming the repository, the workflow and the exact commit a release was built from.
 
 = Setting it up =
@@ -100,7 +100,7 @@ All settings are saved per profile and survive restarts.
 |-
 | <code>stt timeout &lt;ms&gt;</code> || Stop listening after this much silence; <code>0</code> keeps listening open-ended.
 |-
-| <code>stt bias on&#124;off</code> || Bias the decoder toward the game's vocabulary.  On by default where the engine and model support it.  <code>stt status</code> shows the setting and says so when the loaded model cannot honour it, and <code>stt vocab</code> shows what the biasing budget is being spent on.  A few phrases come out worse under biasing, which is what <code>off</code> is for, and <code>stt test</code> measures the difference on your own setup.
+| <code>stt bias on&#124;off</code> || Bias the decoder toward the game's vocabulary.  On by default where the engine and model support it.  <code>stt status</code> shows the setting and says so when the loaded model cannot honor it, and <code>stt vocab</code> shows what the biasing budget is being spent on.  A few phrases come out worse under biasing, which is what <code>off</code> is for, and <code>stt test</code> measures the difference on your own setup.
 |-
 | <code>stt model &lt;name&gt;</code> || Load a different installed model, switching engine if that model belongs to another one.  Your choice is remembered.
 |-
