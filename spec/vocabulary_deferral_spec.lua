@@ -105,6 +105,30 @@ describe("sttpkg.applyVocabulary", function()
     assert.is_nil(why)
   end)
 
+  -- The count is what the decoder is running, so an engine that no longer has
+  -- a decoder is running none. A model switch that fails to load leaves the
+  -- engine with nothing, and a count kept from the model before it would be
+  -- reported as what the engine still holds - and worse, a later withdrawal
+  -- would be refused by the absent engine and announced as deferred, which
+  -- says the words are still in a decoder that does not exist.
+  it("forgets the running count when the engine loses its model", function()
+    withEngine(true, true)
+    assert.is_true(sttpkg.applyVocabulary() > 0)
+
+    withEngine(true, false, false)
+    assert.are.equal(0, (sttpkg.applyVocabulary()))
+    -- Not only the return: the cached count is what a quality test prints on
+    -- its settings line, so a stale one labels a run with a word count the
+    -- decoder does not have. That is the same mislabelling the deferred cases
+    -- above exist to prevent, arriving by a different route.
+    assert.are.equal(0, sttpkg._biasWords, "a run would be labelled with words no decoder holds")
+
+    sttpkg.config.biasing = false
+    local applied, why = sttpkg.applyVocabulary()
+    assert.are.equal(0, applied)
+    assert.is_nil(why, "a withdrawal from an engine with no decoder was called deferred")
+  end)
+
   it("says so when no catalog has arrived", function()
     withEngine(true, true)
     _G.mcvp = nil

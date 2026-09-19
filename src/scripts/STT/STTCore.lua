@@ -289,6 +289,22 @@ function sttpkg.applyVocabulary()
   if not sttpkg.bridgeAvailable() or type(stt.setVocabulary) ~= "function" then
     return 0, "unsupported"
   end
+  -- Asked before the engine has a model, this looks identical to a model that
+  -- cannot bias: setVocabulary refuses, and the capability query has no model
+  -- to describe so it answers false. Telling a player their model cannot bias
+  -- when status reads "state uninitialized, model none" sends them looking for
+  -- a different model instead of loading the one they have.
+  --
+  -- First, and zeroing the count, because both are about a decoder that is not
+  -- there. A model switch that fails to load leaves the engine with nothing,
+  -- and a count kept from the model before it would be reported as what the
+  -- engine still holds. Worse, the withdrawal path would then offer an empty
+  -- list to an absent engine, be refused, and call that deferred - announcing
+  -- words still sitting in a decoder that does not exist.
+  if not stt.initialized() then
+    sttpkg._biasWords = 0
+    return 0, sttpkg.config.biasing and "nomodel" or nil
+  end
   if not (mcvp and mcvp.entries) then return 0, "nocatalog" end
   if not sttpkg.config.biasing then
     -- Withdraw anything applied earlier, so turning it off takes effect
@@ -307,13 +323,6 @@ function sttpkg.applyVocabulary()
     sttpkg._biasWords = 0
     return 0
   end
-
-  -- Asked before the engine has a model, this looks identical to a model that
-  -- cannot bias: setVocabulary refuses, and the capability query has no model
-  -- to describe so it answers false. Telling a player their model cannot bias
-  -- when status reads "state uninitialized, model none" sends them looking for
-  -- a different model instead of loading the one they have.
-  if not stt.initialized() then return 0, "nomodel" end
 
   local words = sttpkg.biasWords()
   if #words == 0 then return 0, "nowords" end
