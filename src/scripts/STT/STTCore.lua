@@ -471,15 +471,22 @@ function sttpkg.enable()
   end
 end
 
-function sttpkg.disable()
+-- discard is for leaving rather than finishing: what was half-said is thrown
+-- away instead of sent. Mudlets without stt.cancel() can only stop, which
+-- finalises it.
+function sttpkg.disable(discard)
   if not (sttpkg.bridgeAvailable() and stt.listening()) then return end
   -- Announced only if it happened. stt.listening() is this profile's own
   -- answer on a Mudlet that tracks who holds the microphone, but on an older
   -- one it is the shared engine's - so a profile that holds nothing could
   -- reach here, have its stop refused, and report a stop it never made while
   -- another game carried on listening.
-  local stopped = stt.stop()
+  local cancelling = discard and stt.cancel
+  local stopped = (cancelling or stt.stop)()
   if stopped then
+    -- No final is coming to replace the preview, so it would otherwise sit
+    -- one Return from sending the words that were just thrown away
+    if cancelling then sttpkg.clearPreview() end
     cecho("<light_slate_gray>[STT] stopped\n")
   end
   return stopped
@@ -573,6 +580,14 @@ local function cmdLineIsOurs()
   if type(getCmdLine) ~= "function" then return true end
   local current = getCmdLine()
   return current == "" or current == sttpkg._preview
+end
+
+--- Clears the live preview, if the command line still holds only that
+function sttpkg.clearPreview()
+  if sttpkg._preview and cmdLineIsOurs() then
+    clearCmdLine()
+  end
+  sttpkg._preview = nil
 end
 
 local function handleFinal(_, text)
@@ -679,7 +694,7 @@ function sttpkg.setup()
     -- wrong game is wrong, not a preference.
     focus = registerAnonymousEventHandler("sysProfileFocusChangeEvent", function(_, focused)
       if focused or not sttpkg.listening() then return end
-      sttpkg.disable()
+      sttpkg.disable(true)
       cecho("<orange>[STT] Stopped listening - this profile is no longer in front.\n")
     end),
     -- Another profile asked for the microphone and this session is over. The
@@ -698,7 +713,7 @@ function sttpkg.setup()
     -- Mudlet without the event simply never fires it and nothing changes.
     appFocus = registerAnonymousEventHandler("sysApplicationFocusChangeEvent", function(_, active)
       if active or not sttpkg.config.stopOnFocusLoss or not sttpkg.listening() then return end
-      sttpkg.disable()
+      sttpkg.disable(true)
       cecho("<orange>[STT] Stopped listening - Mudlet is not the active window.\n")
     end),
   }

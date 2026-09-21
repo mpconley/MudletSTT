@@ -20,13 +20,15 @@ dofile("src/scripts/STT/STTCorrect.lua")
 dofile("src/scripts/STT/STTCore.lua")
 
 local stopped
+local discarded
 local listening
 
 before_each(function()
   stopped = false
+  discarded = nil
   listening = true
   sttpkg.listening = function() return listening end
-  sttpkg.disable = function() stopped = true end
+  sttpkg.disable = function(discard) stopped = true discarded = discard end
   sttpkg.config.stopOnFocusLoss = true
 end)
 
@@ -36,6 +38,11 @@ describe("stopping when the profile is no longer in front", function()
   it("stops listening when this profile goes behind another", function()
     focus(false)
     assert.is_true(stopped)
+  end)
+
+  it("throws away what was half-said rather than sending it", function()
+    focus(false)
+    assert.is_true(discarded)
   end)
 
   it("does nothing when this profile comes to the front", function()
@@ -62,6 +69,11 @@ describe("stopping when Mudlet is not the active application", function()
   it("stops listening when Mudlet goes to the background", function()
     focus(false)
     assert.is_true(stopped)
+  end)
+
+  it("throws away what was half-said rather than sending it", function()
+    focus(false)
+    assert.is_true(discarded)
   end)
 
   it("does nothing when Mudlet comes back to the front", function()
