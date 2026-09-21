@@ -172,7 +172,7 @@ Each of the run forms takes a trailing number for the pass count; <code>stop</co
 |-
 | ''"another profile is listening, and only the profile that started a session can stop it"'' || Switch to the profile that is listening and stop it there, or start speech here to take the microphone.  See [[#One microphone, several profiles|One microphone, several profiles]].
 |-
-| Speech stopped on its own || Another profile took the microphone.  Only one profile can listen at a time.
+| Speech stopped on its own || Another profile asked for the microphone.  Only one profile can listen at a time.
 |-
 | Microphone permission denied || Grant it in your system's privacy settings, then start listening again.  On macOS check '''both''' Microphone and Speech Recognition.
 |-
@@ -234,7 +234,7 @@ Every handler receives two string arguments: the event name, then the payload be
 |-
 | <code>sysSTTStateChanged</code> || state || <code>uninitialized</code>, <code>ready</code>, <code>starting</code>, <code>listening</code>, <code>processing</code> or <code>error</code>.
 |-
-| <code>sysSTTHandover</code> || profile name || Another profile took the microphone and this session is over.  Raised on the profile that lost it, naming the one that now holds it.  Nothing else says why a session stopped; the state change that follows looks like any ordinary stop.
+| <code>sysSTTHandover</code> || profile name || Another profile asked for the microphone and this session is over.  Raised on the profile losing it, naming the one that asked.  Nothing else says why a session stopped; the state change that follows looks like any ordinary stop.  Usually the asking profile holds the microphone from here.  The exception is a speech engine still finishing this session's last phrase when the request arrives - macOS's built-in one does - where the request is refused, the phrase still arrives here, and this profile keeps the microphone until it does; the asking profile's retry then takes it without raising this again.  So it is raised once per handover, and a package must not assume the named profile is already listening.
 |-
 | <code>sysSTTCapabilitiesChanged</code> || JSON || The <code>capabilities</code> table changed: a model loaded or was released, an engine was created or swapped, or the engine library was unloaded or reloaded.  Same keys as <code>getInfo().capabilities</code>.
 |-
