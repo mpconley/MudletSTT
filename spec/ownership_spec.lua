@@ -82,7 +82,8 @@ describe("being told another profile asked for the microphone", function()
   -- notice the player watches their microphone close for no reason they can see.
   it("names the profile that asked for it", function()
     handover("StickMUD")
-    assert.is_true(saidSomethingAbout("StickMUD"))
+    assert.is_true(saidSomethingAbout("StickMUD asked for the microphone"))
+    assert.is_false(saidSomethingAbout("took"))
   end)
 
   it("puts the control back to not-listening", function()
