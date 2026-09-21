@@ -28,7 +28,7 @@ Speech recognition in Mudlet is made of up to three parts, so your client carrie
 
 = Setting it up =
 
-Speech to text needs Mudlet '''[CONFIRM: the release that introduces the speech API; see the talk page]''' or later, with '''MudletSTT 1.5.1''' and '''MudletMCVP 2.1.0'''.  Earlier versions, 5.0.1 included, have no speech support at all: neither the microphone button nor the <code>stt</code> alias exists there, so there is nothing to fall back to.
+Speech to text needs Mudlet '''[CONFIRM: the release that introduces the speech API; see the talk page]''' or later, with '''MudletSTT 1.6.0''' and '''MudletMCVP 2.1.0'''.  Earlier versions, 5.0.1 included, have no speech support at all: neither the microphone button nor the <code>stt</code> alias exists there, so there is nothing to fall back to.
 
 == 1. Install the package ==
 
