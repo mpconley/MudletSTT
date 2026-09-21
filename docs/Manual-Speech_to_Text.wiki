@@ -75,7 +75,7 @@ Mudlet has a single recognizer, so '''only one profile can be listening at a tim
 
 What that means in practice:
 
-* Switching games mid-phrase does not move the session with you.  Results belong to the game the words were spoken to, even if another game is in front when you finish.
+* Switching games mid-phrase does not move the session with you: listening stops, and what you had half-said is thrown away rather than sent.  A phrase you had already finished still belongs to the game it was spoken to, even if another game is in front when it lands.
 * From the profile that is listening, the control stops the session as you would expect.  From any other profile it takes the microphone instead, because from there the control reads as off however busy the recognizer is.
 * A profile cannot switch off a session another profile started.  <code>stt off</code> there does nothing: it has no session of its own to stop, and it will not reach across and stop the other game's.
 
@@ -92,7 +92,7 @@ All settings are saved per profile and survive restarts.
 |-
 | <code>stt correct on&#124;off</code> || Correct finished phrases against the game's vocabulary (needs [[Standards:MUD Client Vocabulary Protocol|MCVP]], below).  On by default.
 |-
-| <code>stt focus stop&#124;keep</code> || Whether listening stops when Mudlet is not the active application.  <code>stop</code> by default: a microphone left open to a game nobody is playing is the more expensive mistake.  <code>keep</code> suits dictating while reading something in another window.
+| <code>stt focus stop&#124;keep</code> || Whether listening stops when Mudlet is not the active application.  <code>stop</code> by default: a microphone left open to a game nobody is playing is the more expensive mistake.  A phrase you were partway through is thrown away rather than sent.  <code>keep</code> suits dictating while reading something in another window.
 |-
 | <code>stt lowercase on&#124;off</code> || Lowercase the first letter, the way commands are typed.
 |-
@@ -196,7 +196,7 @@ The full contract is [https://github.com/Mudlet/Mudlet/blob/development/docs/stt
 {| class="wikitable"
 ! Group !! Functions
 |-
-| Lifecycle || <code>stt.init([modelPath])</code>, <code>stt.start()</code>, <code>stt.stop()</code>, <code>stt.toggle()</code>, <code>stt.close()</code>
+| Lifecycle || <code>stt.init([modelPath])</code>, <code>stt.start()</code>, <code>stt.stop()</code>, <code>stt.cancel()</code>, <code>stt.toggle()</code>, <code>stt.close()</code>
 |-
 | Queries || <code>stt.available()</code>, <code>stt.initialized()</code>, <code>stt.listening()</code>, <code>stt.getInfo()</code>
 |-
@@ -217,7 +217,7 @@ The full contract is [https://github.com/Mudlet/Mudlet/blob/development/docs/stt
 
 There is one recognizer per client, so at most one profile can be listening.  Events are raised on the profile holding the microphone, the one whose <code>stt.start()</code> began the session, and on the active profile when no session is running.  Those are the same profile in the ordinary case, and differ when the player moves to another game mid-session.
 
-A second profile calling <code>stt.start()</code> or <code>stt.toggle()</code> asks for the microphone: the running session stops and the profile that lost it is told through <code>sysSTTHandover</code>.  The microphone usually moves at once; the exception, a session still finishing its last phrase, is described under that event below.  <code>stt.toggle()</code> therefore only ever stops a session the calling profile owns; from anywhere else it is a request for the microphone.  <code>stt.stop()</code> refuses outright from a profile that does not hold the session.
+A second profile calling <code>stt.start()</code> or <code>stt.toggle()</code> asks for the microphone: the running session stops and the profile that lost it is told through <code>sysSTTHandover</code>.  The microphone usually moves at once; the exception, a session still finishing its last phrase, is described under that event below.  <code>stt.toggle()</code> therefore only ever stops a session the calling profile owns; from anywhere else it is a request for the microphone.  <code>stt.stop()</code> and <code>stt.cancel()</code> refuse outright from a profile that does not hold the session.  The difference between them is what happens to what was said: <code>stt.stop()</code> finishes the phrase and delivers it, <code>stt.cancel()</code> throws it away.
 
 <code>sysSTTCapabilitiesChanged</code> follows the same rule, which is worth knowing because it does not describe a session: a model loaded or a library reloaded while another profile holds the microphone is announced there, not to every profile that could read the same answer back from <code>stt.getInfo()</code>.
 

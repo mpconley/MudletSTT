@@ -30,6 +30,10 @@ when the game publishes one.
   one-word command like `look` commits after a brief pause instead of waiting
   out a dictation-length silence. Engines that support it are also biased
   against dropping the quiet start of a phrase, which is where the verb lives.
+- **Leaving does not send**: when listening stops because you switched to
+  another profile or another application, a phrase you were partway through
+  is thrown away rather than sent as a command. Needs a Mudlet with
+  `stt.cancel()`; older ones can only stop, which sends it.
 - **Engine aware**: prefers an installed sherpa-onnx streaming model
   (NVIDIA Nemotron - high accuracy, hands-free endpointing) and falls back
   to Vosk. Models install separately via engine packs.
