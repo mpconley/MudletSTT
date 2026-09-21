@@ -66,7 +66,7 @@ describe("stopping a session this profile may not own", function()
   end)
 end)
 
-describe("being told another profile took the microphone", function()
+describe("being told another profile asked for the microphone", function()
   local refreshed
 
   before_each(function()
@@ -80,9 +80,10 @@ describe("being told another profile took the microphone", function()
   -- The state change that follows a handover says only that listening stopped,
   -- which is what a stop this profile asked for looks like too. Without the
   -- notice the player watches their microphone close for no reason they can see.
-  it("names the profile that took it", function()
+  it("names the profile that asked for it", function()
     handover("StickMUD")
-    assert.is_true(saidSomethingAbout("StickMUD"))
+    assert.is_true(saidSomethingAbout("StickMUD asked for the microphone"))
+    assert.is_false(saidSomethingAbout("took"))
   end)
 
   it("puts the control back to not-listening", function()

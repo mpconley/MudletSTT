@@ -689,7 +689,10 @@ function sttpkg.setup()
     -- never raise it and lose nothing.
     handover = registerAnonymousEventHandler("sysSTTHandover", function(_, tookIt)
       sttpkg.ui.refresh()
-      cecho("<orange>[STT] Stopped listening - " .. tostring(tookIt) .. " took the microphone.\n")
+      -- "asked for" rather than "took": if this profile was still finishing a
+      -- phrase, the request is refused and the phrase still arrives here, so
+      -- the named profile may not hold the microphone yet.
+      cecho("<orange>[STT] Stopped listening - " .. tostring(tookIt) .. " asked for the microphone.\n")
     end),
     -- Every profile hears this one, so each stops its own microphone; a
     -- Mudlet without the event simply never fires it and nothing changes.
