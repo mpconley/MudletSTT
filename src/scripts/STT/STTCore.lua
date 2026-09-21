@@ -481,8 +481,12 @@ function sttpkg.disable(discard)
   -- one it is the shared engine's - so a profile that holds nothing could
   -- reach here, have its stop refused, and report a stop it never made while
   -- another game carried on listening.
-  local stopped = (discard and stt.cancel or stt.stop)()
+  local cancelling = discard and stt.cancel
+  local stopped = (cancelling or stt.stop)()
   if stopped then
+    -- No final is coming to replace the preview, so it would otherwise sit
+    -- one Return from sending the words that were just thrown away
+    if cancelling then sttpkg.clearPreview() end
     cecho("<light_slate_gray>[STT] stopped\n")
   end
   return stopped
@@ -576,6 +580,14 @@ local function cmdLineIsOurs()
   if type(getCmdLine) ~= "function" then return true end
   local current = getCmdLine()
   return current == "" or current == sttpkg._preview
+end
+
+--- Clears the live preview, if the command line still holds only that
+function sttpkg.clearPreview()
+  if sttpkg._preview and cmdLineIsOurs() then
+    clearCmdLine()
+  end
+  sttpkg._preview = nil
 end
 
 local function handleFinal(_, text)

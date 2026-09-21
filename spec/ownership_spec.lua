@@ -99,6 +99,52 @@ describe("stopping because attention moved away", function()
     sttpkg.disable()
     assert.are.same({ "stop" }, called)
   end)
+
+  -- No final arrives to replace the live preview, so without this the words
+  -- that were thrown away sit in the command line one Return from being sent
+  describe("the live preview of what was thrown away", function()
+    local cmdLine
+
+    before_each(function()
+      cmdLine = "say test"
+      sttpkg._preview = "say test"
+      _G.getCmdLine = function() return cmdLine end
+      _G.clearCmdLine = function() cmdLine = "" end
+    end)
+
+    after_each(function()
+      _G.getCmdLine, _G.clearCmdLine = nil, nil
+      sttpkg._preview = nil
+    end)
+
+    it("is cleared", function()
+      bridge(true)
+      sttpkg.disable(true)
+      assert.are.equal("", cmdLine)
+    end)
+
+    it("leaves what the player typed over it", function()
+      cmdLine = "say something else"
+      bridge(true)
+      sttpkg.disable(true)
+      assert.are.equal("say something else", cmdLine)
+    end)
+
+    -- Where only stt.stop() exists the phrase is finalised, and the final
+    -- replaces the preview the ordinary way
+    it("is left for the final on a Mudlet with no stt.cancel", function()
+      bridge(false)
+      sttpkg.disable(true)
+      assert.are.equal("say test", cmdLine)
+    end)
+
+    it("is left when the cancel was refused", function()
+      bridge(true)
+      _G.stt.cancel = function() return nil, "another profile is listening" end
+      sttpkg.disable(true)
+      assert.are.equal("say test", cmdLine)
+    end)
+  end)
 end)
 
 describe("being told another profile asked for the microphone", function()
