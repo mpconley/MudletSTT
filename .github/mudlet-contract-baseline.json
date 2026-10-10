@@ -14,8 +14,8 @@
   "repo": "Mudlet/Mudlet",
   "ref": "development",
   "paths": {
-    "docs/stt-api.md": "c0a1f9556f59be9e4c8a30d33898fb77363e64f2",
-    "src/TLuaInterpreterSpeechToText.cpp": "52c467cc11c9e9ef70b9d216167dcc8495f38c02",
-    "src/mudlet-lua/tests/STT_spec.lua": "d2b96b25a380a3c6190a9f6bb47f66149f7c8b8c"
+    "docs/stt-api.md": "e62276ed838785ec733eab8b70bc2d4e4c8d00d1",
+    "src/TLuaInterpreterSpeechToText.cpp": "dc6e80d36b21025957a2d6cf4968fc167ea13670",
+    "src/mudlet-lua/tests/STT_spec.lua": "1d388435f78d99b3843875af88e9ed268fd91bb3"
   }
 }
