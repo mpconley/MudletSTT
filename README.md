@@ -26,10 +26,12 @@ when the game publishes one.
   sentence-case their output ("Smile"), so the first letter is lowercased to
   match how commands are written. Only the first letter — proper nouns in
   arguments keep their case.
-- **Tuned for commands, not dictation**: sensitivity defaults to `short`, so a
-  one-word command like `look` commits after a brief pause instead of waiting
-  out a dictation-length silence. Engines that support it are also biased
+- **Tuned for commands, not dictation**: engines that support it are biased
   against dropping the quiet start of a phrase, which is where the verb lives.
+  Sensitivity defaults to `default` rather than `short`: `short` commits a
+  one-word command like `look` sooner, but measured worse, because it can cut
+  the word off before the decoder has emitted it. `stt sensitivity short` is
+  there for anyone who prefers the speed.
 - **Leaving does not send**: when listening stops because you switched to
   another profile or another application, a phrase you were partway through
   is thrown away rather than sent as a command. Needs a Mudlet with
