@@ -40,7 +40,7 @@ That is the whole installation on macOS.  On Windows and Linux, carry on to step
 
 == 2. Install an engine and a model ==
 
-'''On macOS, skip this step''' unless you want a different engine and are running a Mudlet you built yourself (see the note above).
+'''On macOS, skip this step''' unless you want a different engine and have a copy of its library that Mudlet can load (see the note above).
 
 There is no one-click engine pack yet, so this is a manual step: place the engine library in the folder <code>stt.getLibraryPath()</code> names, and unpack models into <code>stt.getModelPath()</code>.
 
