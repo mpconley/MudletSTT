@@ -17,7 +17,7 @@ Speech recognition in Mudlet is made of up to three parts, so your client carrie
 
 [[File:Stt-engine-choice.png|thumb|right|400px|alt=Decision tree. stt.init() with a model folder loads whichever engine that folder's layout belongs to, Vosk or sherpa-onnx; an unrecognized layout, or no folder at all, falls back to whichever engine library is installed, preferring sherpa-onnx over Vosk. With no engine installed, macOS uses its built-in recognizer and other platforms refuse with a message saying where to install one.|Which engine you get.]]
 
-{{note}} '''On a Mac you can skip the engine and the model entirely.'''  If you install neither Vosk nor sherpa-onnx, Mudlet uses the system recognizer, which needs no download and no disk space.  If you ''do'' install one of the others, Mudlet uses that instead.
+{{note}} '''On a Mac you can skip the engine and the model entirely.'''  If you install neither Vosk nor sherpa-onnx, Mudlet uses the system recognizer, which needs no download and no disk space.  If you ''do'' install one of the others, Mudlet uses that instead &mdash; but not the libraries the Vosk and sherpa-onnx projects publish: signed Mudlet releases on macOS only load engine libraries Mudlet has signed, so those are refused and the system recognizer is used anyway.  They work only in a Mudlet you built yourself.
 
 = Privacy =
 
@@ -40,7 +40,7 @@ That is the whole installation on macOS.  On Windows and Linux, carry on to step
 
 == 2. Install an engine and a model ==
 
-'''On macOS, skip this step''' unless you want a different engine (see the note above).
+'''On macOS, skip this step''' unless you want a different engine and have a copy of its library that Mudlet can load (see the note above).
 
 There is no one-click engine pack yet, so this is a manual step: place the engine library in the folder <code>stt.getLibraryPath()</code> names, and unpack models into <code>stt.getModelPath()</code>.
 
@@ -96,7 +96,7 @@ All settings are saved per profile and survive restarts.
 |-
 | <code>stt lowercase on&#124;off</code> || Lowercase the first letter, the way commands are typed.
 |-
-| <code>stt sensitivity short&#124;default&#124;long</code> || How soon a phrase counts as finished.  <code>default</code> is the default even for commands, because <code>short</code> can cut a one-word command off before the decoder has emitted it.  <code>long</code> suits dictation.  Not every engine can be tuned this way: the macOS recognizer decides its own phrase endings, and Vosk needs a library carrying the endpointer.  <code>stt status</code> says so when yours cannot.
+| <code>stt sensitivity short&#124;default&#124;long</code> || How soon a phrase counts as finished.  <code>default</code> is the default even for commands, because <code>short</code> can cut a one-word command off before the decoder has emitted it.  <code>long</code> suits dictation.  Not every engine can be tuned this way: the macOS recognizer decides its own phrase endings, and Vosk needs a library carrying the endpointer, which means one built from source: the downloadable Vosk libraries, 0.3.45 and earlier, do not have it.  <code>stt status</code> says so when yours cannot.
 |-
 | <code>stt timeout &lt;ms&gt;</code> || Stop listening after this much silence; <code>0</code> keeps listening open-ended.
 |-
@@ -124,7 +124,7 @@ Engines differ.  <code>stt status</code> shows what the one you are running can 
 |-
 | Per-word timing and confidence (<code>sysSTTWords</code>) || yes || not yet || yes
 |-
-| Tune how soon a phrase ends (<code>stt sensitivity</code>) || with a library that carries the endpointer || yes || no, it decides for itself
+| Tune how soon a phrase ends (<code>stt sensitivity</code>) || only with a library built from source, newer than 0.3.45 || yes || no, it decides for itself
 |-
 | Runs on || Windows, Linux, macOS || Windows, Linux, macOS || macOS only
 |}
