@@ -8,8 +8,11 @@
 sttpkg = sttpkg or {}
 sttpkg.ui = sttpkg.ui or {}
 
+-- Lucide's mic, drawn like Mudlet's own toolbar glyphs. Mudlet tints its own
+-- glyphs to the appearance but shows a package icon as it is, so the gray is
+-- fixed: #868686 clears 3:1 on both the dark and the light toolbar.
 local function iconPath()
-  local path = getMudletHomeDir() .. "/STT/microphone.png"
+  local path = getMudletHomeDir() .. "/STT/microphone.svg"
   if io.exists(path) then return path end
   return ""
 end
