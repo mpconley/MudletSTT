@@ -8,8 +8,11 @@
 sttpkg = sttpkg or {}
 sttpkg.ui = sttpkg.ui or {}
 
+-- Lucide's mic, drawn like Mudlet's own toolbar glyphs. Mudlet tints its own
+-- glyphs to the appearance but shows a package icon as it is, so the gray is
+-- fixed: #868686 clears 3:1 on both the dark and the light toolbar.
 local function iconPath()
-  local path = getMudletHomeDir() .. "/STT/microphone.png"
+  local path = getMudletHomeDir() .. "/STT/microphone.svg"
   if io.exists(path) then return path end
   return ""
 end
@@ -75,8 +78,9 @@ function sttpkg.ui.refresh(state)
   -- room for a colour - a menu entry, or a command line indicator
   setCommandChecked(sttpkg.ui.commandId, listening)
   -- The pulse is the toolbar's refinement, and refuses on a command with no
-  -- button, so its answer is not worth acting on
-  setCommandPulse(sttpkg.ui.commandId, listening, "#22aa44", "#116622", 700)
+  -- button, so its answer is not worth acting on. Blue, as Mudlet's own "on"
+  -- is: green sits too close to the error red for red-green color blindness
+  setCommandPulse(sttpkg.ui.commandId, listening, "#2a82da", "#15416d", 700)
   -- An open microphone has to stay stoppable from wherever the player goes.
   -- Pinning shows this control in whichever window they are in, whatever
   -- profile that window is showing - and only while it is listening, so two
