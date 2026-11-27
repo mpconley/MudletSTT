@@ -17,6 +17,7 @@ local pinned
 _G.setCommandChecked = function() return true end
 _G.setCommandPulse = function() return true end
 _G.setCommandTooltip = function() return true end
+_G.setCommandIcon = function() return true end
 _G.setCommandPinned = function(_, state)
   pinned = state
   return true
