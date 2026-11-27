@@ -8,11 +8,13 @@
 sttpkg = sttpkg or {}
 sttpkg.ui = sttpkg.ui or {}
 
--- Lucide's mic, drawn like Mudlet's own toolbar glyphs. Mudlet tints its own
--- glyphs to the appearance but shows a package icon as it is, so the gray is
--- fixed: #868686 clears 3:1 on both the dark and the light toolbar.
-local function iconPath()
-  local path = getMudletHomeDir() .. "/STT/microphone.svg"
+-- Lucide's mic, drawn like Mudlet's own toolbar glyphs, one per state. Mudlet
+-- tints its own glyphs to the appearance but shows a package icon as it is, so
+-- each ink is fixed and clears 3:1 on both the dark and the light toolbar:
+-- teal at rest (the package icon's own), white on the blue pulse while
+-- listening, and a struck-through mic in Mudlet's error red.
+local function iconPath(name)
+  local path = getMudletHomeDir() .. "/STT/" .. name .. ".svg"
   if io.exists(path) then return path end
   return ""
 end
@@ -47,7 +49,7 @@ function sttpkg.ui.ensureCommand()
   -- reaches them, and the client places whichever it has.
   local id, why = addCommand{
     name = "Speech",
-    icon = iconPath(),
+    icon = iconPath("microphone"),
     tooltip = "Toggle speech recognition" .. profileSuffix(),
     menuPath = "Speech",
     surfaces = {"menu", "toolbar"},
@@ -91,12 +93,15 @@ function sttpkg.ui.refresh(state)
     setCommandPinned(sttpkg.ui.commandId, listening)
   end
 
-  local tooltip = "Toggle speech recognition"
+  -- The icon changes with the state too, so an error shows on the button
+  -- itself rather than only to a player who hovers over it
+  local icon, tooltip = "microphone", "Toggle speech recognition"
   if listening then
-    tooltip = "Speech: listening (click to stop)"
+    icon, tooltip = "microphone-listening", "Speech: listening (click to stop)"
   elseif state == "error" then
-    tooltip = "Speech: error - see the main window"
+    icon, tooltip = "microphone-error", "Speech: error - see the main window"
   end
+  setCommandIcon(sttpkg.ui.commandId, iconPath(icon))
   setCommandTooltip(sttpkg.ui.commandId, tooltip .. profileSuffix())
 end
 
